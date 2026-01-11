@@ -296,3 +296,28 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - Separate selectedIndex states (tasks vs iterations) prevent confusion when switching views
   - View mode toggle pattern keeps TUI responsive without needing separate screens
 ---
+
+## 2026-01-11 - ralph-tui-45r.19
+- What was implemented:
+  - US-019: Session Persistence with full acceptance criteria
+  - PersistedSessionState type for saving: iteration, task statuses, start time, pause state, tracker state
+  - Session file saved to .ralph-tui-session.json in project root
+  - Session state saved automatically after each iteration completes
+  - `ralph-tui resume` command to continue from saved state
+  - `ralph-tui status` command to check if resumable session exists
+  - Prompt shown when existing session found on `ralph-tui run`
+  - Session file cleaned up automatically on successful completion
+- Files changed:
+  - src/session/persistence.ts (new) - Session persistence types and functions
+  - src/session/index.ts (updated) - Export persistence module
+  - src/commands/status.ts (new) - Status command implementation
+  - src/commands/resume.tsx (new) - Resume command implementation
+  - src/commands/index.ts (updated) - Export new commands
+  - src/cli.tsx (updated) - Handle resume and status subcommands
+  - src/commands/run.tsx (updated) - Integrate session persistence
+- **Learnings:**
+  - Session persistence uses a separate file (.ralph-tui-session.json) from the lock system (.ralph-session/)
+  - State updates use immutable patterns with spread operators for safe concurrent access
+  - Event-driven iteration completion hooks allow persistence without tight coupling
+  - Session cleanup on completion prevents stale data; interrupted sessions remain resumable
+---
