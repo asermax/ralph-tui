@@ -15,7 +15,6 @@ import {
   createSession,
   resumeSession,
   endSession,
-  cleanStaleLock,
   hasPersistedSession,
   loadPersistedSession,
   savePersistedSession,
@@ -27,6 +26,9 @@ import {
   failSession,
   isSessionResumable,
   getSessionSummary,
+  acquireLockWithPrompt,
+  releaseLockNew,
+  registerLockCleanupHandlers,
   type PersistedSessionState,
 } from '../session/index.js';
 import { ExecutionEngine } from '../engine/index.js';
@@ -611,23 +613,11 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     console.warn(`Warning: ${warning}`);
   }
 
-  // Check for existing session
+  // Check for existing persisted session file
   const sessionCheck = await checkSession(config.cwd);
   const hasPersistedSessionFile = await hasPersistedSession(config.cwd);
 
-  if (sessionCheck.isLocked && !sessionCheck.isStale && !options.force) {
-    console.error('\nError: Another Ralph instance is already running.');
-    console.error(`  PID: ${sessionCheck.lock?.pid}`);
-    console.error('  Use --force to override.');
-    process.exit(1);
-  }
-
-  // Clean stale lock if present
-  if (sessionCheck.isStale) {
-    await cleanStaleLock(config.cwd);
-  }
-
-  // Handle existing persisted session
+  // Handle existing persisted session prompt first (before lock acquisition)
   if (hasPersistedSessionFile && !options.force && !options.resume) {
     const choice = await promptResumeOrNew(config.cwd);
     if (choice === 'abort') {
@@ -639,6 +629,27 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     }
   }
 
+  // Generate session ID early for lock acquisition
+  const { randomUUID } = await import('node:crypto');
+  const newSessionId = randomUUID();
+
+  // Acquire lock with proper error messages and stale lock handling
+  const lockResult = await acquireLockWithPrompt(config.cwd, newSessionId, {
+    force: options.force,
+    nonInteractive: options.headless,
+  });
+
+  if (!lockResult.acquired) {
+    console.error(`\nError: ${lockResult.error}`);
+    if (lockResult.existingPid) {
+      console.error('  Use --force to override.');
+    }
+    process.exit(1);
+  }
+
+  // Register cleanup handlers to release lock on exit/crash
+  const cleanupLockHandlers = registerLockCleanupHandlers(config.cwd);
+
   // Handle resume or new session
   let session;
   if (options.resume && sessionCheck.hasSession) {
@@ -646,10 +657,13 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     session = await resumeSession(config.cwd);
     if (!session) {
       console.error('Failed to resume session');
+      await releaseLockNew(config.cwd);
+      cleanupLockHandlers();
       process.exit(1);
     }
   } else {
     // Create new session (task count will be updated after tracker init)
+    // Note: Lock already acquired above, so createSession won't re-acquire
     session = await createSession({
       agentPlugin: config.agent.plugin,
       trackerPlugin: config.tracker.plugin,
@@ -689,6 +703,8 @@ export async function executeRunCommand(args: string[]): Promise<void> {
       error instanceof Error ? error.message : error
     );
     await endSession(config.cwd, 'failed');
+    await releaseLockNew(config.cwd);
+    cleanupLockHandlers();
     process.exit(1);
   }
 
@@ -724,6 +740,8 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     persistedState = failSession(persistedState);
     await savePersistedSession(persistedState);
     await endSession(config.cwd, 'failed');
+    await releaseLockNew(config.cwd);
+    cleanupLockHandlers();
     process.exit(1);
   }
 
@@ -745,7 +763,9 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     console.log('\nSession state saved. Use "ralph-tui resume" to continue.');
   }
 
-  // End session
+  // End session and clean up lock
   await endSession(config.cwd, allComplete ? 'completed' : 'interrupted');
+  await releaseLockNew(config.cwd);
+  cleanupLockHandlers();
   console.log('\nRalph TUI finished.');
 }

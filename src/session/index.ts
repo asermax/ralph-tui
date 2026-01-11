@@ -370,3 +370,13 @@ export type {
   PersistedSessionState,
   PersistedIterationResult,
 } from './persistence.js';
+
+// Re-export lock module with single instance support
+export {
+  checkLock,
+  acquireLockWithPrompt,
+  releaseLock as releaseLockNew,
+  registerLockCleanupHandlers,
+  type LockCheckResult,
+  type LockAcquisitionResult,
+} from './lock.js';
