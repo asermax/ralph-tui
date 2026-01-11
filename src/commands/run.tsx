@@ -26,9 +26,14 @@ import {
   failSession,
   isSessionResumable,
   getSessionSummary,
+  addActiveTask,
+  removeActiveTask,
+  clearActiveTasks,
+  getActiveTasks,
   acquireLockWithPrompt,
   releaseLockNew,
   registerLockCleanupHandlers,
+  checkLock,
   type PersistedSessionState,
 } from '../session/index.js';
 import { ExecutionEngine } from '../engine/index.js';
@@ -209,6 +214,160 @@ async function initializePlugins(): Promise<void> {
   const trackerRegistry = getTrackerRegistry();
 
   await Promise.all([agentRegistry.initialize(), trackerRegistry.initialize()]);
+}
+
+/**
+ * Result of detecting stale in_progress tasks
+ */
+interface StaleTasksResult {
+  /** Task IDs that are stale in_progress from a crashed session */
+  staleTasks: string[];
+  /** Whether any tasks were reset */
+  tasksReset: boolean;
+  /** Count of tasks that were reset */
+  resetCount: number;
+}
+
+/**
+ * Detect and handle stale in_progress tasks from crashed sessions.
+ *
+ * This checks:
+ * 1. If there's a persisted session file from a previous run
+ * 2. If the lock is stale (previous process no longer running)
+ * 3. If that session had any tasks marked as "active" (in_progress)
+ *
+ * If stale tasks are found, prompts the user whether to reset them back to open.
+ *
+ * @param cwd - Working directory
+ * @param tracker - Tracker plugin instance
+ * @param headless - Whether running in headless mode (auto-reset without prompt)
+ * @returns Information about any stale tasks found and reset
+ */
+async function detectAndHandleStaleTasks(
+  cwd: string,
+  tracker: TrackerPlugin,
+  headless: boolean
+): Promise<StaleTasksResult> {
+  const result: StaleTasksResult = {
+    staleTasks: [],
+    tasksReset: false,
+    resetCount: 0,
+  };
+
+  // Check for persisted session from a previous run
+  const hasSession = await hasPersistedSession(cwd);
+  if (!hasSession) {
+    return result;
+  }
+
+  const persistedState = await loadPersistedSession(cwd);
+  if (!persistedState) {
+    return result;
+  }
+
+  // Get active task IDs from the previous session
+  const activeTaskIds = getActiveTasks(persistedState);
+  if (activeTaskIds.length === 0) {
+    return result;
+  }
+
+  // Check if the previous session's lock is stale (process no longer running)
+  const lockStatus = await checkLock(cwd);
+
+  // If the lock is still held by a running process, don't touch the tasks
+  if (lockStatus.isLocked && !lockStatus.isStale) {
+    return result;
+  }
+
+  // Found stale in_progress tasks from a crashed session!
+  result.staleTasks = activeTaskIds;
+
+  // Get task details for display
+  const taskDetails: Array<{ id: string; title: string }> = [];
+  for (const taskId of activeTaskIds) {
+    try {
+      const task = await tracker.getTask(taskId);
+      if (task) {
+        taskDetails.push({ id: task.id, title: task.title });
+      } else {
+        taskDetails.push({ id: taskId, title: '(task not found)' });
+      }
+    } catch {
+      taskDetails.push({ id: taskId, title: '(error loading task)' });
+    }
+  }
+
+  // Display warning
+  console.log('');
+  console.log('⚠️  Stale in_progress tasks detected');
+  console.log('');
+  console.log('A previous Ralph session did not exit cleanly.');
+  console.log(`Found ${activeTaskIds.length} task(s) stuck in "in_progress" status:`);
+  console.log('');
+  for (const task of taskDetails) {
+    console.log(`  • ${task.id}: ${task.title}`);
+  }
+  console.log('');
+
+  // In headless mode, auto-reset with warning
+  if (headless) {
+    console.log('Headless mode: automatically resetting tasks to open...');
+    for (const taskId of activeTaskIds) {
+      try {
+        await tracker.updateTaskStatus(taskId, 'open');
+        result.resetCount++;
+      } catch {
+        // Continue on individual failures
+      }
+    }
+    result.tasksReset = result.resetCount > 0;
+
+    // Update the persisted state to clear active tasks
+    if (result.tasksReset) {
+      const updatedState = clearActiveTasks(persistedState);
+      await savePersistedSession(updatedState);
+    }
+
+    console.log(`Reset ${result.resetCount} task(s) to open.`);
+    console.log('');
+    return result;
+  }
+
+  // Interactive mode: prompt user
+  const { promptBoolean } = await import('../setup/prompts.js');
+  const shouldReset = await promptBoolean(
+    'Reset these tasks back to "open" status?',
+    { default: true }
+  );
+
+  if (!shouldReset) {
+    console.log('Tasks left as-is. They may need manual cleanup.');
+    console.log('');
+    return result;
+  }
+
+  // Reset tasks
+  console.log('Resetting tasks...');
+  for (const taskId of activeTaskIds) {
+    try {
+      await tracker.updateTaskStatus(taskId, 'open');
+      result.resetCount++;
+    } catch {
+      console.log(`  Warning: Failed to reset ${taskId}`);
+    }
+  }
+  result.tasksReset = result.resetCount > 0;
+
+  // Update the persisted state to clear active tasks
+  if (result.tasksReset) {
+    const updatedState = clearActiveTasks(persistedState);
+    await savePersistedSession(updatedState);
+  }
+
+  console.log(`Reset ${result.resetCount} task(s) to open.`);
+  console.log('');
+
+  return result;
 }
 
 /**
@@ -432,10 +591,26 @@ async function runWithTui(
 
   const root = createRoot(renderer);
 
-  // Subscribe to engine events to save state
+  // Subscribe to engine events to save state and track active tasks
   engine.on((event) => {
     if (event.type === 'iteration:completed') {
       currentState = updateSessionAfterIteration(currentState, event.result);
+      // If task was completed, remove it from active tasks
+      if (event.result.taskCompleted) {
+        currentState = removeActiveTask(currentState, event.result.task.id);
+      }
+      savePersistedSession(currentState).catch(() => {
+        // Log but don't fail on save errors
+      });
+    } else if (event.type === 'task:activated') {
+      // Track task as active when set to in_progress
+      currentState = addActiveTask(currentState, event.task.id);
+      savePersistedSession(currentState).catch(() => {
+        // Log but don't fail on save errors
+      });
+    } else if (event.type === 'task:completed') {
+      // Task completed - remove from active tasks
+      currentState = removeActiveTask(currentState, event.task.id);
       savePersistedSession(currentState).catch(() => {
         // Log but don't fail on save errors
       });
@@ -461,9 +636,20 @@ async function runWithTui(
     renderer.destroy();
   };
 
-  // Graceful shutdown: save state, clean up, and resolve the quit promise
+  // Graceful shutdown: reset active tasks, save state, clean up, and resolve the quit promise
   // This is called when the user explicitly quits (q key or Ctrl+C confirmation)
   const gracefulShutdown = async (): Promise<void> => {
+    // Reset any active (in_progress) tasks back to open
+    // This prevents tasks from being stuck in_progress after shutdown
+    const activeTasks = getActiveTasks(currentState);
+    if (activeTasks.length > 0) {
+      const resetCount = await engine.resetTasksToOpen(activeTasks);
+      if (resetCount > 0) {
+        // Clear active tasks from state now that they've been reset
+        currentState = clearActiveTasks(currentState);
+      }
+    }
+
     // Save current state (may be completed, interrupted, etc.)
     await savePersistedSession(currentState);
     await cleanup();
@@ -603,10 +789,20 @@ async function runHeadless(
         // Log task completion if applicable
         if (event.result.taskCompleted) {
           logger.taskCompleted(event.result.task.id, event.result.iteration);
+          // Remove from active tasks
+          currentState = removeActiveTask(currentState, event.result.task.id);
         }
 
         // Save state after each iteration
         currentState = updateSessionAfterIteration(currentState, event.result);
+        savePersistedSession(currentState).catch(() => {
+          // Silently continue on save errors
+        });
+        break;
+
+      case 'task:activated':
+        // Track task as active when set to in_progress
+        currentState = addActiveTask(currentState, event.task.id);
         savePersistedSession(currentState).catch(() => {
           // Silently continue on save errors
         });
@@ -674,6 +870,11 @@ async function runHeadless(
 
       case 'task:completed':
         // Already logged in iteration:completed handler
+        // Remove from active tasks (redundant with iteration:completed but safe)
+        currentState = removeActiveTask(currentState, event.task.id);
+        savePersistedSession(currentState).catch(() => {
+          // Silently continue on save errors
+        });
         break;
     }
   });
@@ -682,6 +883,17 @@ async function runHeadless(
   const gracefulShutdown = async (): Promise<void> => {
     logger.info('system', 'Interrupted, stopping gracefully...');
     logger.info('system', '(Press Ctrl+C again within 1s to force quit)');
+
+    // Reset any active (in_progress) tasks back to open
+    const activeTasks = getActiveTasks(currentState);
+    if (activeTasks.length > 0) {
+      logger.info('system', `Resetting ${activeTasks.length} in_progress task(s) to open...`);
+      const resetCount = await engine.resetTasksToOpen(activeTasks);
+      if (resetCount > 0) {
+        currentState = clearActiveTasks(currentState);
+      }
+    }
+
     // Save interrupted state
     currentState = { ...currentState, status: 'interrupted' };
     await savePersistedSession(currentState);
@@ -708,6 +920,17 @@ async function runHeadless(
   // Handle SIGTERM (always graceful, no double-press)
   const handleSigterm = async (): Promise<void> => {
     logger.info('system', 'Received SIGTERM, stopping gracefully...');
+
+    // Reset any active (in_progress) tasks back to open
+    const activeTasks = getActiveTasks(currentState);
+    if (activeTasks.length > 0) {
+      logger.info('system', `Resetting ${activeTasks.length} in_progress task(s) to open...`);
+      const resetCount = await engine.resetTasksToOpen(activeTasks);
+      if (resetCount > 0) {
+        currentState = clearActiveTasks(currentState);
+      }
+    }
+
     currentState = { ...currentState, status: 'interrupted' };
     await savePersistedSession(currentState);
     await engine.dispose();
@@ -912,11 +1135,17 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   const engine = new ExecutionEngine(config);
 
   let tasks: TrackerTask[] = [];
+  let tracker: TrackerPlugin;
   try {
     await engine.initialize();
     // Get tasks for persisted state
     const trackerRegistry = getTrackerRegistry();
-    const tracker = await trackerRegistry.getInstance(config.tracker);
+    tracker = await trackerRegistry.getInstance(config.tracker);
+
+    // Detect and handle stale in_progress tasks from crashed sessions
+    // This must happen before we fetch tasks, so they reflect any resets
+    await detectAndHandleStaleTasks(config.cwd, tracker, options.headless ?? false);
+
     tasks = await tracker.getTasks({ status: ['open', 'in_progress'] });
   } catch (error) {
     console.error(

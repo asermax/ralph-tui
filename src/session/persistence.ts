@@ -103,6 +103,13 @@ export interface PersistedSessionState {
 
   /** Working directory */
   cwd: string;
+
+  /**
+   * Task IDs that this session set to in_progress and haven't completed.
+   * Used for crash recovery: on graceful shutdown, reset these back to open.
+   * On startup, detect stale in_progress tasks from crashed sessions.
+   */
+  activeTaskIds: string[];
 }
 
 /**
@@ -263,6 +270,7 @@ export function createPersistedSession(options: {
     iterations: [],
     skippedTaskIds: [],
     cwd: options.cwd,
+    activeTaskIds: [],
   };
 }
 
@@ -381,6 +389,63 @@ export function addSkippedTask(
     ...state,
     skippedTaskIds: [...state.skippedTaskIds, taskId],
   };
+}
+
+/**
+ * Add a task to the active task list (when starting work on it).
+ * These are tasks this session set to in_progress that haven't completed.
+ */
+export function addActiveTask(
+  state: PersistedSessionState,
+  taskId: string
+): PersistedSessionState {
+  // Handle legacy sessions that don't have activeTaskIds
+  const currentActive = state.activeTaskIds ?? [];
+
+  if (currentActive.includes(taskId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    activeTaskIds: [...currentActive, taskId],
+  };
+}
+
+/**
+ * Remove a task from the active task list (when task is completed).
+ */
+export function removeActiveTask(
+  state: PersistedSessionState,
+  taskId: string
+): PersistedSessionState {
+  // Handle legacy sessions that don't have activeTaskIds
+  const currentActive = state.activeTaskIds ?? [];
+
+  return {
+    ...state,
+    activeTaskIds: currentActive.filter((id) => id !== taskId),
+  };
+}
+
+/**
+ * Clear all active tasks (used during graceful shutdown).
+ */
+export function clearActiveTasks(
+  state: PersistedSessionState
+): PersistedSessionState {
+  return {
+    ...state,
+    activeTaskIds: [],
+  };
+}
+
+/**
+ * Get the list of active task IDs for this session.
+ * Returns empty array for legacy sessions without this field.
+ */
+export function getActiveTasks(state: PersistedSessionState): string[] {
+  return state.activeTaskIds ?? [];
 }
 
 /**

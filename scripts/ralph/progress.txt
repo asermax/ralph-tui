@@ -1155,3 +1155,19 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - Select fields cycle through options rather than opening dropdown (simpler TUI interaction model)
   - Form edit mode needs character-by-character input handling via key.sequence
 ---
+
+## 2026-01-11 - ralph-tui-45r.44
+- What was implemented:
+  - TASK: Remove bv recipe option from tracker settings
+  - Removed useRecipe private field from BeadsBvTrackerPlugin
+  - Removed config parsing for recipe in initialize()
+  - Removed recipe setup question from getSetupQuestions() (now just returns parent questions)
+  - Removed --recipe flag usage from getNextTask() bv command args
+  - Removed --recipe flag usage from refreshTriage() bv command args
+- Files changed:
+  - src/plugins/trackers/builtin/beads-bv.ts (updated) - Removed all recipe-related code (~45 lines deleted)
+- **Learnings:**
+  - Plugin config can become unnecessary over time - removing unused options simplifies UX
+  - bv's default behavior (no recipe filter) is often sufficient for task selection
+  - getSetupQuestions() can simply delegate to parent when no plugin-specific config is needed
+---

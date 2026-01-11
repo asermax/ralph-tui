@@ -360,6 +360,10 @@ export {
   completeSession,
   failSession,
   addSkippedTask,
+  addActiveTask,
+  removeActiveTask,
+  clearActiveTasks,
+  getActiveTasks,
   isSessionResumable,
   getSessionSummary,
 } from './persistence.js';

@@ -90,6 +90,7 @@ export type EngineEventType =
   | 'iteration:retrying'
   | 'iteration:skipped'
   | 'task:selected'
+  | 'task:activated'
   | 'task:completed'
   | 'agent:output'
   | 'all:complete'
@@ -229,6 +230,19 @@ export interface TaskSelectedEvent extends EngineEventBase {
 }
 
 /**
+ * Task activated event - emitted when a task status is set to in_progress.
+ * Used for crash recovery: tracks which tasks this session "owns" so they
+ * can be reset back to open on graceful shutdown or detected as stale on startup.
+ */
+export interface TaskActivatedEvent extends EngineEventBase {
+  type: 'task:activated';
+  /** Activated task */
+  task: TrackerTask;
+  /** Iteration number */
+  iteration: number;
+}
+
+/**
  * Task completed event
  */
 export interface TaskCompletedEvent extends EngineEventBase {
@@ -286,6 +300,7 @@ export type EngineEvent =
   | IterationRetryingEvent
   | IterationSkippedEvent
   | TaskSelectedEvent
+  | TaskActivatedEvent
   | TaskCompletedEvent
   | AgentOutputEvent
   | AllCompleteEvent

@@ -508,6 +508,15 @@ export class ExecutionEngine {
     // Update task status to in_progress
     await this.tracker!.updateTaskStatus(task.id, 'in_progress');
 
+    // Emit task:activated for crash recovery tracking
+    // This allows the session to track which tasks it "owns" for reset on shutdown
+    this.emit({
+      type: 'task:activated',
+      timestamp: new Date().toISOString(),
+      task,
+      iteration,
+    });
+
     // Build prompt
     const prompt = buildPrompt(task, this.config);
 
@@ -711,6 +720,41 @@ export class ExecutionEngine {
    */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Reset specific task IDs back to open status.
+   * Used during graceful shutdown to release tasks that were set to in_progress
+   * by this session but not completed.
+   *
+   * @param taskIds - Array of task IDs to reset to open
+   * @returns Number of tasks successfully reset
+   */
+  async resetTasksToOpen(taskIds: string[]): Promise<number> {
+    if (!this.tracker || taskIds.length === 0) {
+      return 0;
+    }
+
+    let resetCount = 0;
+    for (const taskId of taskIds) {
+      try {
+        await this.tracker.updateTaskStatus(taskId, 'open');
+        resetCount++;
+      } catch {
+        // Silently continue on individual task reset failures
+        // The task may have been deleted or modified externally
+      }
+    }
+
+    return resetCount;
+  }
+
+  /**
+   * Get the tracker instance for external operations.
+   * Used by the run command for stale task detection and reset.
+   */
+  getTracker(): TrackerPlugin | null {
+    return this.tracker;
   }
 
   /**
