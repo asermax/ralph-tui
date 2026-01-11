@@ -18,7 +18,13 @@
       "Bash(ls:*)",
       "Bash(bd export:*)",
       "Bash(strace:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(bun install:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run typecheck:*)",
+      "Bash(./dist/cli.js:*)",
+      "Bash(bun:*)",
+      "Bash(bd doctor:*)"
     ]
   }
 }
