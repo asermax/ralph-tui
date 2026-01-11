@@ -16,6 +16,7 @@ import { RightPanel } from './RightPanel.js';
 import { IterationHistoryView } from './IterationHistoryView.js';
 import { TaskDetailView } from './TaskDetailView.js';
 import { IterationDetailView } from './IterationDetailView.js';
+import { ProgressDashboard } from './ProgressDashboard.js';
 import type { ExecutionEngine, EngineEvent, IterationResult } from '../../engine/index.js';
 
 /**
@@ -79,6 +80,11 @@ export function RunApp({ engine, onQuit, onTaskDrillDown, onIterationDrillDown }
   const [hasError, setHasError] = useState(false);
   const [epicName] = useState('Ralph');
   const [trackerName] = useState('beads');
+  const [agentName] = useState('claude');
+  // Dashboard visibility state
+  const [showDashboard, setShowDashboard] = useState(true);
+  // Completed iterations count for ETA calculation
+  const [completedIterations, setCompletedIterations] = useState(0);
   // Iteration history state
   const [iterations, setIterations] = useState<IterationResult[]>([]);
   const [totalIterations] = useState(10); // Default max iterations for display
@@ -132,6 +138,8 @@ export function RunApp({ engine, onQuit, onTaskDrillDown, onIterationDrillDown }
           break;
 
         case 'iteration:completed':
+          // Increment completed iterations for ETA calculation
+          setCompletedIterations((prev) => prev + 1);
           if (event.result.taskCompleted) {
             setTasks((prev) =>
               prev.map((t) =>
@@ -289,6 +297,11 @@ export function RunApp({ engine, onQuit, onTaskDrillDown, onIterationDrillDown }
           setDetailIteration(null);
           break;
 
+        case 'd':
+          // Toggle dashboard visibility
+          setShowDashboard((prev) => !prev);
+          break;
+
         case 'return':
         case 'enter':
           if (viewMode === 'tasks') {
@@ -346,6 +359,22 @@ export function RunApp({ engine, onQuit, onTaskDrillDown, onIterationDrillDown }
         elapsedTime={elapsedTime}
         trackerName={trackerName || 'beads'}
       />
+
+      {/* Progress Dashboard - toggleable with 'd' key */}
+      {showDashboard && (
+        <ProgressDashboard
+          status={engineStatusToRalphStatus(engine.getStatus(), hasError)}
+          completedTasks={completedTasks}
+          totalTasks={totalTasks}
+          currentIteration={currentIteration}
+          maxIterations={totalIterations}
+          elapsedTimeSeconds={elapsedTime}
+          agentName={agentName}
+          trackerName={trackerName || 'beads'}
+          epicName={epicName}
+          completedIterations={completedIterations}
+        />
+      )}
 
       {/* Main content area */}
       <box

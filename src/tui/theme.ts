@@ -74,9 +74,9 @@ export const statusIndicators = {
 export const keyboardShortcuts = [
   { key: 'q', description: 'Quit' },
   { key: 'p', description: 'Pause/Resume' },
+  { key: 'd', description: 'Dashboard' },
   { key: '↑↓', description: 'Navigate' },
   { key: 'Enter', description: 'Select' },
-  { key: '?', description: 'Help' },
 ] as const;
 
 /**

@@ -495,3 +495,29 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - The iteration-detail view follows the same pattern as task-detail: full-screen scrollbox with Esc to return
   - OpenTUI scrollbox handles large content well for potentially large agent outputs
 ---
+
+## 2026-01-11 - ralph-tui-45r.16
+- What was implemented:
+  - US-016: Progress Dashboard with full acceptance criteria
+  - ProgressDashboard component showing comprehensive execution status
+  - Task progress bar: completed / total tasks with percentage
+  - Iteration progress bar: current / max iterations with percentage
+  - Elapsed time display using existing formatElapsedTime utility
+  - ETA calculation based on average iteration duration
+  - Status display: Running / Paused / Completed / Failed with color-coded indicators
+  - Agent name and tracker name display
+  - Toggle dashboard visibility with 'd' key
+  - Added completedIterations state tracking for ETA calculation
+  - Dashboard shows between Header and main content area
+  - Auto-update every second (uses existing interval from RunApp)
+- Files changed:
+  - src/tui/components/ProgressDashboard.tsx (new) - Progress dashboard component
+  - src/tui/components/RunApp.tsx (updated) - Integrated ProgressDashboard, added state
+  - src/tui/components/index.ts (updated) - Export ProgressDashboard
+  - src/tui/theme.ts (updated) - Added 'd' shortcut for dashboard toggle
+- **Learnings:**
+  - ETA calculation needs at least one completed iteration before providing an estimate
+  - The dashboard toggle pattern keeps the TUI uncluttered while providing detail on demand
+  - Tracking completedIterations separately from iterations array allows for accurate ETA math
+  - Nested ProgressBar components keep the main component clean and reusable
+---
