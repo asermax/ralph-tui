@@ -149,6 +149,24 @@ export interface AgentSetupQuestion {
 }
 
 /**
+ * Rate limit handling configuration for agents.
+ * Controls how ralph-tui responds when an agent hits API rate limits.
+ */
+export interface RateLimitHandlingConfig {
+  /** Whether rate limit handling is enabled (default: true) */
+  enabled?: boolean;
+
+  /** Maximum retries before switching to fallback agent (default: 3) */
+  maxRetries?: number;
+
+  /** Base backoff time in milliseconds for exponential retry (default: 5000) */
+  baseBackoffMs?: number;
+
+  /** Whether to attempt switching back to primary agent between iterations (default: true) */
+  recoverPrimaryBetweenIterations?: boolean;
+}
+
+/**
  * Configuration for an agent plugin instance.
  * Stored in YAML config files.
  */
@@ -173,6 +191,16 @@ export interface AgentPluginConfig {
 
   /** Plugin-specific configuration options */
   options: Record<string, unknown>;
+
+  /**
+   * Ordered list of fallback agent names to use when this agent hits rate limits.
+   * Names refer to other configured agent names or plugin IDs.
+   * Order determines priority (first fallback tried first).
+   */
+  fallbackAgents?: string[];
+
+  /** Rate limit handling configuration for this agent */
+  rateLimitHandling?: RateLimitHandlingConfig;
 }
 
 /**

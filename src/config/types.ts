@@ -8,6 +8,34 @@ import type { TrackerPluginConfig } from '../plugins/trackers/types.js';
 import type { ErrorHandlingConfig, ErrorHandlingStrategy } from '../engine/types.js';
 
 /**
+ * Rate limit handling configuration for agents.
+ * Controls how ralph-tui responds when an agent hits API rate limits.
+ */
+export interface RateLimitHandlingConfig {
+  /** Whether rate limit handling is enabled (default: true) */
+  enabled?: boolean;
+
+  /** Maximum retries before switching to fallback agent (default: 3) */
+  maxRetries?: number;
+
+  /** Base backoff time in milliseconds for exponential retry (default: 5000) */
+  baseBackoffMs?: number;
+
+  /** Whether to attempt switching back to primary agent between iterations (default: true) */
+  recoverPrimaryBetweenIterations?: boolean;
+}
+
+/**
+ * Default rate limit handling configuration
+ */
+export const DEFAULT_RATE_LIMIT_HANDLING: Required<RateLimitHandlingConfig> = {
+  enabled: true,
+  maxRetries: 3,
+  baseBackoffMs: 5000,
+  recoverPrimaryBetweenIterations: true,
+};
+
+/**
  * Subagent tracing detail level controls how much subagent information is displayed.
  * - 'off': No tracing, use raw output (current default behavior)
  * - 'minimal': Show start/complete events only
@@ -105,6 +133,15 @@ export interface StoredConfig {
 
   /** Shorthand: tracker-specific options */
   trackerOptions?: Record<string, unknown>;
+
+  /**
+   * Shorthand: fallback agents for the default agent.
+   * Ordered list of agent names/plugins to try when the primary agent hits rate limits.
+   */
+  fallbackAgents?: string[];
+
+  /** Shorthand: rate limit handling configuration for the default agent */
+  rateLimitHandling?: RateLimitHandlingConfig;
 
   /** Whether to auto-commit after successful tasks */
   autoCommit?: boolean;

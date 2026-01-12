@@ -31,6 +31,16 @@ export const ErrorHandlingConfigSchema = z.object({
 export const AgentOptionsSchema = z.record(z.string(), z.unknown());
 
 /**
+ * Rate limit handling configuration schema
+ */
+export const RateLimitHandlingConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  maxRetries: z.number().int().min(0).max(10).optional(),
+  baseBackoffMs: z.number().int().min(0).max(300000).optional(),
+  recoverPrimaryBetweenIterations: z.boolean().optional(),
+});
+
+/**
  * Agent plugin configuration schema
  */
 export const AgentPluginConfigSchema = z.object({
@@ -41,6 +51,8 @@ export const AgentPluginConfigSchema = z.object({
   defaultFlags: z.array(z.string()).optional(),
   timeout: z.number().int().min(0).optional(),
   options: AgentOptionsSchema.optional().default({}),
+  fallbackAgents: z.array(z.string().min(1)).optional(),
+  rateLimitHandling: RateLimitHandlingConfigSchema.optional(),
 });
 
 /**

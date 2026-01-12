@@ -1,0 +1,139 @@
+{
+  "project": "ralph-tui",
+  "branchName": "ralph/rate-limit-fallback",
+  "description": "Rate Limit Fallback - Automatic agent switching when primary agent hits rate limits, with recovery between iterations",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Configure fallback agents in config",
+      "description": "As a user, I want to configure a prioritized list of fallback agents so ralph-tui knows which agents to try when my primary hits rate limits.",
+      "acceptanceCriteria": [
+        "Add fallbackAgents array to agent config section in src/config/types.ts",
+        "Each entry specifies agent plugin name (e.g., 'opencode', 'claude')",
+        "Order determines priority (first fallback tried first)",
+        "Add rateLimitHandling config: enabled, maxRetries, baseBackoffMs, recoverPrimaryBetweenIterations",
+        "Config validation warns if fallback agent not installed/available",
+        "bun run typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Detect rate limit from agent output",
+      "description": "As the engine, I need to detect when an agent has hit rate limits so I can trigger fallback behavior.",
+      "acceptanceCriteria": [
+        "Create src/engine/rate-limit-detector.ts with RateLimitDetector class",
+        "Parse stderr for patterns: 'rate limit', '429', 'too many requests', 'overloaded', 'quota exceeded'",
+        "Detect non-zero exit codes combined with rate limit indicators",
+        "Agent-specific pattern sets for Claude and OpenCode",
+        "Return structured result: { isRateLimit: boolean, message?: string, retryAfter?: number }",
+        "Parse retryAfter from message if present (e.g., 'retry after 60s')",
+        "bun run typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement retry with exponential backoff",
+      "description": "As the engine, I want to retry with backoff before switching agents, in case the rate limit is brief.",
+      "acceptanceCriteria": [
+        "On rate limit detection, wait and retry (not immediate fallback)",
+        "Exponential backoff: 5s, 15s, 45s (configurable via baseBackoffMs)",
+        "Maximum 3 retry attempts before triggering fallback (configurable via maxRetries)",
+        "If retryAfter detected in rate limit response, use that duration instead",
+        "Log retry attempts with remaining count to output",
+        "bun run typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Track active agent state in engine",
+      "description": "As the engine, I need to track which agent is currently active and why, so the TUI can display accurate status.",
+      "acceptanceCriteria": [
+        "Add activeAgent to engine state: { plugin: string, reason: 'primary' | 'fallback', since: Date }",
+        "Add rateLimitState tracking: { primaryAgent: string, limitedAt?: Date, fallbackAgent?: string }",
+        "Emit state change events when agent switches",
+        "State persists across iterations until primary recovered",
+        "Add getActiveAgentInfo() method for TUI to query",
+        "bun run typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Switch to fallback agent on persistent rate limit",
+      "description": "As the engine, I need to switch to a fallback agent when retries are exhausted so execution can continue.",
+      "acceptanceCriteria": [
+        "After retry exhaustion, select next available fallback agent from config",
+        "Initialize fallback agent with same config/options as primary",
+        "Transfer current task context to fallback agent",
+        "Continue current iteration on fallback agent",
+        "Update activeAgent state with reason 'fallback'",
+        "If all fallback agents exhausted, pause execution and emit 'allAgentsLimited' event",
+        "bun run typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Attempt primary agent recovery between iterations",
+      "description": "As the engine, I want to try switching back to the primary agent at the start of each new iteration so I use the preferred agent when available.",
+      "acceptanceCriteria": [
+        "At iteration start, if on fallback and recoverPrimaryBetweenIterations is true, attempt primary",
+        "Use short timeout for primary test (5s) to avoid delays",
+        "If primary succeeds (no rate limit on test), switch back and clear fallback state",
+        "If primary still limited, continue on fallback agent",
+        "Log recovery attempts and outcomes",
+        "bun run typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Display active agent and fallback status in TUI",
+      "description": "As a user, I want to see which agent is currently active and whether I'm on a fallback so I understand the current execution state.",
+      "acceptanceCriteria": [
+        "Header shows active agent name from engine state",
+        "When on fallback, show indicator: 'opencode (fallback)' with different color/style",
+        "Show rate limit icon when primary is limited",
+        "Tooltip or status line shows: 'Primary (claude) rate limited, using fallback'",
+        "bun run typecheck passes",
+        "Verify in TUI manually"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Log agent switches to iteration output",
+      "description": "As a user reviewing logs, I want to see when and why agent switches occurred so I can understand execution history.",
+      "acceptanceCriteria": [
+        "Log entry when switching to fallback: timestamp, reason, from/to agents",
+        "Log entry when recovering to primary: timestamp, duration on fallback",
+        "Include in iteration log metadata: agentSwitches array with { at, from, to, reason }",
+        "Summary in iteration completion output: 'Completed on fallback (opencode) due to rate limit'",
+        "bun run typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-12T16:06:34.592Z"
+  }
+}
