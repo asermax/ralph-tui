@@ -257,22 +257,51 @@ function getDefaultAgentConfig(
   const registry = getAgentRegistry();
   const plugins = registry.getRegisteredPlugins();
 
+  // Helper to apply agentOptions shorthand to config
+  const applyAgentOptions = (config: AgentPluginConfig): AgentPluginConfig => {
+    if (storedConfig.agentOptions) {
+      return {
+        ...config,
+        options: { ...config.options, ...storedConfig.agentOptions },
+      };
+    }
+    return config;
+  };
+
   // Check CLI override first
   if (options.agent) {
     const found = storedConfig.agents?.find(
       (a) => a.name === options.agent || a.plugin === options.agent
     );
-    if (found) return found;
+    if (found) return applyAgentOptions(found);
 
     // Create minimal config for the specified plugin
     if (registry.hasPlugin(options.agent)) {
-      return {
+      return applyAgentOptions({
         name: options.agent,
         plugin: options.agent,
         options: {},
-      };
+      });
     }
     return undefined;
+  }
+
+  // Check shorthand agent field (e.g., agent = "claude" in TOML)
+  if (storedConfig.agent) {
+    // First check if it matches a configured agent in agents array
+    const found = storedConfig.agents?.find(
+      (a) => a.name === storedConfig.agent || a.plugin === storedConfig.agent
+    );
+    if (found) return applyAgentOptions(found);
+
+    // Create config for the shorthand plugin
+    if (registry.hasPlugin(storedConfig.agent)) {
+      return applyAgentOptions({
+        name: storedConfig.agent,
+        plugin: storedConfig.agent,
+        options: {},
+      });
+    }
   }
 
   // Check stored default
@@ -280,23 +309,23 @@ function getDefaultAgentConfig(
     const found = storedConfig.agents?.find(
       (a) => a.name === storedConfig.defaultAgent
     );
-    if (found) return found;
+    if (found) return applyAgentOptions(found);
   }
 
   // Use first available agent from config
   if (storedConfig.agents && storedConfig.agents.length > 0) {
     const defaultAgent = storedConfig.agents.find((a) => a.default);
-    return defaultAgent ?? storedConfig.agents[0];
+    return applyAgentOptions(defaultAgent ?? storedConfig.agents[0]!);
   }
 
   // Fall back to first built-in plugin (claude)
   const firstPlugin = plugins.find((p) => p.id === 'claude') ?? plugins[0];
   if (firstPlugin) {
-    return {
+    return applyAgentOptions({
       name: firstPlugin.id,
       plugin: firstPlugin.id,
       options: {},
-    };
+    });
   }
 
   return undefined;
@@ -312,22 +341,51 @@ function getDefaultTrackerConfig(
   const registry = getTrackerRegistry();
   const plugins = registry.getRegisteredPlugins();
 
+  // Helper to apply trackerOptions shorthand to config
+  const applyTrackerOptions = (config: TrackerPluginConfig): TrackerPluginConfig => {
+    if (storedConfig.trackerOptions) {
+      return {
+        ...config,
+        options: { ...config.options, ...storedConfig.trackerOptions },
+      };
+    }
+    return config;
+  };
+
   // Check CLI override first
   if (options.tracker) {
     const found = storedConfig.trackers?.find(
       (t) => t.name === options.tracker || t.plugin === options.tracker
     );
-    if (found) return found;
+    if (found) return applyTrackerOptions(found);
 
     // Create minimal config for the specified plugin
     if (registry.hasPlugin(options.tracker)) {
-      return {
+      return applyTrackerOptions({
         name: options.tracker,
         plugin: options.tracker,
         options: {},
-      };
+      });
     }
     return undefined;
+  }
+
+  // Check shorthand tracker field (e.g., tracker = "beads-bv" in TOML)
+  if (storedConfig.tracker) {
+    // First check if it matches a configured tracker in trackers array
+    const found = storedConfig.trackers?.find(
+      (t) => t.name === storedConfig.tracker || t.plugin === storedConfig.tracker
+    );
+    if (found) return applyTrackerOptions(found);
+
+    // Create config for the shorthand plugin
+    if (registry.hasPlugin(storedConfig.tracker)) {
+      return applyTrackerOptions({
+        name: storedConfig.tracker,
+        plugin: storedConfig.tracker,
+        options: {},
+      });
+    }
   }
 
   // Check stored default
@@ -335,23 +393,23 @@ function getDefaultTrackerConfig(
     const found = storedConfig.trackers?.find(
       (t) => t.name === storedConfig.defaultTracker
     );
-    if (found) return found;
+    if (found) return applyTrackerOptions(found);
   }
 
   // Use first available tracker from config
   if (storedConfig.trackers && storedConfig.trackers.length > 0) {
     const defaultTracker = storedConfig.trackers.find((t) => t.default);
-    return defaultTracker ?? storedConfig.trackers[0];
+    return applyTrackerOptions(defaultTracker ?? storedConfig.trackers[0]!);
   }
 
   // Fall back to first built-in plugin (beads-bv)
   const firstPlugin = plugins.find((p) => p.id === 'beads-bv') ?? plugins[0];
   if (firstPlugin) {
-    return {
+    return applyTrackerOptions({
       name: firstPlugin.id,
       plugin: firstPlugin.id,
       options: {},
-    };
+    });
   }
 
   return undefined;
@@ -415,7 +473,7 @@ export async function buildConfig(
       storedConfig.iterationDelay ??
       DEFAULT_CONFIG.iterationDelay,
     cwd: options.cwd ?? DEFAULT_CONFIG.cwd,
-    outputDir: storedConfig.outputDir ?? DEFAULT_CONFIG.outputDir,
+    outputDir: options.outputDir ?? storedConfig.outputDir ?? DEFAULT_CONFIG.outputDir,
     epicId: options.epicId,
     prdPath: options.prdPath,
     model: options.model,

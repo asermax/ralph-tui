@@ -689,11 +689,8 @@ export class BeadsBvTrackerPlugin extends BeadsTrackerPlugin {
   // Note: getEpicId() is now inherited from BeadsTrackerPlugin (public)
 
   private getLabels(): string[] {
-    const labels = this.config.labels;
-    if (Array.isArray(labels)) {
-      return labels.filter((l): l is string => typeof l === 'string');
-    }
-    return [];
+    // Use the labels parsed by parent's initialize() method
+    return this.labels;
   }
 }
 

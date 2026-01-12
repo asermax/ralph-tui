@@ -217,7 +217,7 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
 
   private beadsDir: string = '.beads';
   private epicId: string = '';
-  private labels: string[] = [];
+  protected labels: string[] = [];
   private workingDir: string = process.cwd();
 
   override async initialize(config: Record<string, unknown>): Promise<void> {
@@ -231,7 +231,11 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
       this.epicId = config.epicId;
     }
 
-    if (Array.isArray(config.labels)) {
+    // Handle labels as either string or array
+    if (typeof config.labels === 'string') {
+      // Single string or comma-separated string
+      this.labels = config.labels.split(',').map((l) => l.trim()).filter(Boolean);
+    } else if (Array.isArray(config.labels)) {
       this.labels = config.labels.filter(
         (l): l is string => typeof l === 'string'
       );
@@ -337,7 +341,7 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
     // Use --all to include closed issues (TUI filters visibility via showClosedTasks state)
     const args = ['list', '--json', '--all'];
 
-    // Filter by parent (epic)
+    // Filter by parent (epic) - beads in an epic are children of the epic issue
     if (filter?.parentId) {
       args.push('--parent', filter.parentId);
     } else if (this.epicId) {
@@ -358,7 +362,7 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
       }
     }
 
-    // Filter by labels
+    // Filter by labels (separate from epic hierarchy)
     const labelsToFilter =
       filter?.labels && filter.labels.length > 0 ? filter.labels : this.labels;
     if (labelsToFilter.length > 0) {
@@ -385,7 +389,10 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
     let tasks = beads.map(beadToTask);
 
     // Apply additional filtering that bd doesn't support directly
-    tasks = this.filterTasks(tasks, filter);
+    // Note: Remove parentId from filter since bd already handled it via --parent flag
+    // (bd list --json doesn't include parent field in output, so filterTasks would incorrectly remove tasks)
+    const filterWithoutParent = filter ? { ...filter, parentId: undefined } : undefined;
+    tasks = this.filterTasks(tasks, filterWithoutParent);
 
     return tasks;
   }
