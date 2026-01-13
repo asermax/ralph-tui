@@ -148,10 +148,7 @@ The interactive wizard will:
 ### Step 2: Create a PRD
 
 ```bash
-# AI-powered PRD creation (recommended)
-ralph-tui create-prd --chat
-
-# Or use the template-based wizard
+# AI-powered interactive PRD creation (recommended)
 ralph-tui create-prd
 ```
 
