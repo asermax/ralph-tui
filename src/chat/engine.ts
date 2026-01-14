@@ -36,6 +36,8 @@ The user can respond with shorthand like "1A, 2C" for quick iteration.
 
 export const PRD_SYSTEM_PROMPT = buildPrdSystemPrompt(DEFAULT_PRD_SKILL);
 
+const TASK_SYSTEM_PROMPT = 'You are a helpful assistant. Follow the user instructions carefully.';
+
 const PRD_COMPATIBILITY_GUIDANCE = `
 # PRD Output Requirements
 - Wrap the final PRD in [PRD]...[/PRD] markers.
@@ -382,6 +384,21 @@ export function createPrdChatEngine(
   return new ChatEngine({
     agent,
     systemPrompt,
+    cwd: options.cwd,
+    timeout: options.timeout ?? 180000,
+  });
+}
+
+export function createTaskChatEngine(
+  agent: AgentPlugin,
+  options: {
+    cwd?: string;
+    timeout?: number;
+  } = {}
+): ChatEngine {
+  return new ChatEngine({
+    agent,
+    systemPrompt: TASK_SYSTEM_PROMPT,
     cwd: options.cwd,
     timeout: options.timeout ?? 180000,
   });

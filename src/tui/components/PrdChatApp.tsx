@@ -13,9 +13,10 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ChatView } from './ChatView.js';
 import { ConfirmationDialog } from './ConfirmationDialog.js';
-import { ChatEngine, createPrdChatEngine, slugify } from '../../chat/engine.js';
+import { ChatEngine, createPrdChatEngine, createTaskChatEngine, slugify } from '../../chat/engine.js';
 import type { ChatMessage, ChatEvent } from '../../chat/types.js';
 import type { AgentPlugin } from '../../plugins/agents/types.js';
+import { parsePrdMarkdown } from '../../prd/index.js';
 import { colors } from '../theme.js';
 
 /**

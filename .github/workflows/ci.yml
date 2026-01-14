@@ -18,10 +18,9 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Clear build cache
+      - name: Clear TypeScript build cache
         run: |
           rm -rf node_modules/.cache
-          rm -rf node_modules/.pnpm
           rm -rf .tsbuildinfo
 
       - name: Install dependencies
@@ -47,11 +46,10 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Clear website build cache
+      - name: Clear TypeScript build cache
         run: |
           cd website
           rm -rf node_modules/.cache
-          rm -rf node_modules/.pnpm
           rm -rf .tsbuildinfo
 
       - name: Install website dependencies
