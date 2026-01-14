@@ -224,11 +224,11 @@ export function Header({
               {agentDisplay.displayName && (
                 <span fg={agentDisplay.color}>{agentDisplay.displayName}</span>
               )}
-              {agentDisplay.displayName && (trackerName || modelDisplay) && <span fg={colors.fg.dim}>/</span>}
+              {agentDisplay.displayName && (trackerName || modelDisplay) && <span fg={colors.fg.dim}> | </span>}
               {modelDisplay && (
                 <span fg={colors.accent.primary}>{modelDisplay.provider}/{modelDisplay.model}</span>
               )}
-              {(agentDisplay.displayName || modelDisplay) && trackerName && <span fg={colors.fg.dim}>/</span>}
+              {(agentDisplay.displayName || modelDisplay) && trackerName && <span fg={colors.fg.dim}> | </span>}
               {trackerName && <span fg={colors.accent.tertiary}>{trackerName}</span>}
             </text>
           )}
