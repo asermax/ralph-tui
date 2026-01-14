@@ -9,6 +9,7 @@
   - {{dependsOn}}, {{blocks}}, {{notes}}
   - {{model}}, {{agentName}}, {{cwd}}
   - {{currentDate}}, {{currentTimestamp}}
+  - {{recentProgress}} - Summary of completed work from previous iterations
 --}}
 ## User Story
 **ID**: {{taskId}}
@@ -31,6 +32,11 @@
 
 {{#if dependsOn}}
 **Prerequisites**: {{dependsOn}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions

@@ -319,6 +319,45 @@ When finished, signal completion with:
 <promise>COMPLETE</promise>
 ```
 
+## Cross-Iteration Progress Tracking
+
+Ralph maintains a **progress file** (`.ralph-tui/progress.md`) that summarizes work completed across iterations. Use the `{{recentProgress}}` variable to include this summary in your prompts:
+
+```handlebars
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
+{{/if}}
+```
+
+### Why Use `{{recentProgress}}`?
+
+**Reduces token burn**: Instead of sending full iteration logs each time, the agent receives a concise summary of what's been done. This is especially valuable when:
+
+- Working through multi-iteration features
+- Agents have their own context/caching that benefits from summary over full logs
+- You want to avoid redundant file analysis between iterations
+
+**Default behavior**: Ralph's built-in OOTB templates now include `{{recentProgress}}` to help agents understand context without receiving full iteration history.
+
+### How It Works
+
+1. After each iteration, Ralph extracts key information to `{{progressFile}}` (default: `.ralph-tui/progress.md`)
+2. On subsequent iterations, the content is available as `{{recentProgress}}`
+3. The summary includes completed tasks, key changes, and notes from previous work
+
+<Callout type="info">
+The progress file is distinct from iteration logs (`.ralph-tui/iterations/`). Use `{{recentProgress}}` for context and `ralph-tui logs` for detailed debugging.
+</Callout>
+
+### Customizing Progress Content
+
+The progress file is managed by Ralph's engine. To customize what gets included:
+
+1. **Modify task completion** - Ensure tasks include helpful completion notes
+2. **Use task notes** - Include relevant context in tracker task notes
+3. **Adjust prompt template** - The `{{recentProgress}}` variable is read-only; customize the summary by adjusting how tasks are completed
+
 ## Accessing Raw Task Data
 
 For advanced templates, you can access the raw task and config objects:

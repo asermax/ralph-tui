@@ -9,6 +9,7 @@
   - {{dependsOn}}, {{blocks}}
   - {{model}}, {{agentName}}, {{cwd}}
   - {{currentDate}}, {{currentTimestamp}}
+  - {{recentProgress}} - Summary of completed work from previous iterations
 --}}
 ## Bead Details
 - **ID**: {{taskId}}
@@ -23,6 +24,11 @@
 {{#if acceptanceCriteria}}
 ## Acceptance Criteria
 {{acceptanceCriteria}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions

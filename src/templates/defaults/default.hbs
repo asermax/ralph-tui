@@ -9,6 +9,7 @@
   - {{dependsOn}}, {{blocks}}
   - {{model}}, {{agentName}}, {{cwd}}
   - {{currentDate}}, {{currentTimestamp}}
+  - {{recentProgress}} - Summary of completed work from previous iterations
 --}}
 ## Task
 **ID**: {{taskId}}
@@ -30,6 +31,11 @@
 
 {{#if dependsOn}}
 **Dependencies**: {{dependsOn}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions

@@ -9,6 +9,7 @@
   - {{dependsOn}}, {{blocks}}
   - {{model}}, {{agentName}}, {{cwd}}
   - {{currentDate}}, {{currentTimestamp}}
+  - {{recentProgress}} - Summary of completed work from previous iterations
 --}}
 ## Bead Details
 - **ID**: {{taskId}}
@@ -33,6 +34,11 @@ This task depends on: {{dependsOn}}
 {{#if blocks}}
 ## Impact
 Completing this task will unblock: {{blocks}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions

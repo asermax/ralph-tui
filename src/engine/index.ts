@@ -917,8 +917,8 @@ export class ExecutionEngine {
       try {
         const progressEntry = createProgressEntry(result);
         await appendProgress(this.config.cwd, progressEntry);
-      } catch {
-        // Don't fail iteration if progress append fails
+      } catch (err) {
+        console.error('[DEBUG] Progress append failed:', err instanceof Error ? err.message : String(err));
       }
 
       this.emit({
@@ -953,8 +953,8 @@ export class ExecutionEngine {
       try {
         const progressEntry = createProgressEntry(failedResult);
         await appendProgress(this.config.cwd, progressEntry);
-      } catch {
-        // Don't fail iteration if progress append fails
+      } catch (err) {
+        console.error('[DEBUG] Progress append failed (failed iteration):', err instanceof Error ? err.message : String(err));
       }
 
       return failedResult;
