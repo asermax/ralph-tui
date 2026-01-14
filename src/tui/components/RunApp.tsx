@@ -389,6 +389,9 @@ export function RunApp({
   // Rate limit state from engine - tracks primary agent rate limiting
   const [rateLimitState, setRateLimitState] = useState<RateLimitState | null>(null);
 
+  // Compute display agent name - prefer active agent from engine state, fallback to config
+  const displayAgentName = activeAgentState?.plugin ?? agentName;
+
   // Filter and sort tasks for display
   // Sort order: active → actionable → blocked → done → closed
   // This is computed early so keyboard handlers can use displayedTasks.length
@@ -1152,7 +1155,7 @@ export function RunApp({
       {showDashboard && (
         <ProgressDashboard
           status={status}
-          agentName={agentName}
+          agentName={displayAgentName}
           currentModel={currentModel}
           trackerName={trackerName || 'beads'}
           epicName={epicName}
@@ -1191,7 +1194,7 @@ export function RunApp({
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
               iterationTiming={selectedTaskIteration.timing}
-              agentName={agentName}
+              agentName={displayAgentName}
               currentModel={currentModel}
               subagentDetailLevel={subagentDetailLevel}
               subagentTree={subagentTree}
@@ -1224,7 +1227,7 @@ export function RunApp({
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
               iterationTiming={selectedTaskIteration.timing}
-              agentName={agentName}
+              agentName={displayAgentName}
               currentModel={currentModel}
               subagentDetailLevel={subagentDetailLevel}
               subagentTree={subagentTree}
