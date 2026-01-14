@@ -5,7 +5,8 @@
  */
 
 import type { ReactNode } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { TextareaRenderable } from '@opentui/core';
 import { colors } from '../theme.js';
 import type { ChatMessage } from '../../chat/types.js';
 
@@ -74,11 +75,8 @@ export interface ChatViewProps {
   /** Name of the agent (for loading messages) */
   agentName?: string;
 
-  /** Callback when input value changes */
-  onInputChange?: (value: string) => void;
-
-  /** Callback when user submits (presses Enter) */
-  onSubmit?: () => void;
+  /** Callback when user submits (presses Ctrl+Enter) with the current input value */
+  onSubmit?: (value: string) => void;
 }
 
 /**
@@ -140,15 +138,31 @@ export function ChatView({
   error,
   inputEnabled = true,
   cursorPosition: _cursorPosition, // Not used with native input
-  hint = '[Enter] Send  [Esc] Cancel',
+  hint = '[Ctrl+Enter] Send  [Esc] Cancel',
   agentName,
-  onInputChange,
   onSubmit,
 }: ChatViewProps): ReactNode {
   // Generate dynamic loading text
   const loadingText = agentName
     ? `Waiting for ${agentName}...`
     : loadingStatus;
+
+  // Textarea ref for submit handling and value access
+  const textareaRef = useRef<TextareaRenderable>(null);
+
+  // Sync textarea content when inputValue changes from outside (e.g., after clearing)
+  useEffect(() => {
+    if (textareaRef.current && inputValue !== textareaRef.current.plainText) {
+      textareaRef.current.editBuffer.setText(inputValue);
+    }
+  }, [inputValue]);
+
+  // Handle submit - get value from textarea ref and pass it directly
+  const handleSubmit = useCallback(() => {
+    const currentValue = textareaRef.current?.plainText ?? '';
+    onSubmit?.(currentValue);
+  }, [onSubmit]);
+
   return (
     <box
       style={{
@@ -252,7 +266,7 @@ export function ChatView({
       <box
         style={{
           width: '100%',
-          height: 5,
+          height: 8,
           flexDirection: 'column',
           backgroundColor: colors.bg.secondary,
           border: true,
@@ -261,31 +275,30 @@ export function ChatView({
           paddingRight: 1,
         }}
       >
-        {/* Input field - using native OpenTUI input with cursor support */}
+        {/* Textarea for multi-line input with word wrap */}
         <box
           style={{
-            height: 2,
+            flexGrow: 1,
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: 'flex-start',
           }}
         >
-          <text fg={colors.accent.primary}>{'>'} </text>
-          <input
+          <text fg={colors.accent.primary} style={{ paddingTop: 0 }}>{'>'} </text>
+          <textarea
+            ref={textareaRef}
+            initialValue={inputValue}
             style={{
               flexGrow: 1,
-              height: 1,
+              height: 6,
               backgroundColor: 'transparent',
               textColor: colors.fg.primary,
               focusedBackgroundColor: 'transparent',
               focusedTextColor: colors.fg.primary,
               cursorColor: colors.accent.primary,
-              placeholderColor: colors.fg.muted,
             }}
-            value={inputValue}
             placeholder={inputPlaceholder}
             focused={inputEnabled && !isLoading}
-            onInput={onInputChange}
-            onSubmit={onSubmit ? () => onSubmit() : undefined}
+            onSubmit={handleSubmit}
           />
         </box>
 

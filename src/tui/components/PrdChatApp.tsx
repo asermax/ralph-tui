@@ -6,8 +6,8 @@
 
 import type { ReactNode } from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useKeyboard, useRenderer } from '@opentui/react';
-import type { KeyEvent, PasteEvent } from '@opentui/core';
+import { useKeyboard } from '@opentui/react';
+import type { KeyEvent } from '@opentui/core';
 import { writeFile, mkdir, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -383,17 +383,18 @@ Read the PRD and create the appropriate tasks.`;
   /**
    * Send a chat message to the agent
    */
-  const sendMessage = useCallback(async () => {
-    if (!inputValue.trim() || !engineRef.current || isLoading) {
-      return;
-    }
+  const sendMessage = useCallback(
+    async (value?: string) => {
+      const userMessage = value?.trim() ?? inputValue.trim();
+      if (!userMessage || !engineRef.current || isLoading) {
+        return;
+      }
 
-    const userMessage = inputValue.trim();
-    setInputValue('');
-    setIsLoading(true);
-    setStreamingChunk('');
-    setLoadingStatus('Sending to agent...');
-    setError(undefined);
+      setInputValue('');
+      setIsLoading(true);
+      setStreamingChunk('');
+      setLoadingStatus('Sending to agent...');
+      setError(undefined);
 
     const userMsg: ChatMessage = {
       role: 'user',
@@ -429,13 +430,15 @@ Read the PRD and create the appropriate tasks.`;
       if (isMountedRef.current) {
         setError(errorMsg);
       }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setLoadingStatus('');
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setLoadingStatus('');
+        }
       }
-    }
-  }, [inputValue, isLoading]);
+    },
+    [inputValue, isLoading]
+  );
 
   /**
    * Handle keyboard input (only for non-input keys like Escape and review phase shortcuts)
@@ -494,32 +497,11 @@ Read the PRD and create the appropriate tasks.`;
 
   useKeyboard(handleKeyboard);
 
-  // Handle paste events separately from keyboard input
-  // OpenTUI emits paste as a separate event type on the renderer's keyInput handler
-  const renderer = useRenderer();
-  useEffect(() => {
-    const handlePaste = (event: PasteEvent) => {
-      // Don't process paste while loading or in quit confirmation
-      if (isLoading || showQuitConfirm) {
-        return;
-      }
-      // Append pasted text to input value
-      if (event.text) {
-        setInputValue((prev) => prev + event.text);
-      }
-    };
-
-    renderer.keyInput.on('paste', handlePaste);
-    return () => {
-      renderer.keyInput.off('paste', handlePaste);
-    };
-  }, [renderer, isLoading, showQuitConfirm]);
-
   // Determine hint text based on phase
   const hint =
     phase === 'review'
       ? '[1] JSON  [2] Beads  [3] Done  [Enter] Chat  [Esc] Finish'
-      : '[Enter] Send  [Esc] Cancel';
+      : '[Ctrl+Enter] Send  [Esc] Cancel';
 
   // In review phase, show split pane
   if (phase === 'review' && prdContent && prdPath) {
@@ -546,7 +528,6 @@ Read the PRD and create the appropriate tasks.`;
             inputEnabled={!isLoading}
             hint={hint}
             agentName={agent.meta.name}
-            onInputChange={setInputValue}
             onSubmit={sendMessage}
           />
         </box>
@@ -575,7 +556,6 @@ Read the PRD and create the appropriate tasks.`;
         inputEnabled={!isLoading && !showQuitConfirm}
         hint={hint}
         agentName={agent.meta.name}
-        onInputChange={setInputValue}
         onSubmit={sendMessage}
       />
       <ConfirmationDialog
