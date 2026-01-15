@@ -380,9 +380,18 @@ export async function runSetupWizard(
     console.log();
     printSuccess(`Configuration saved to: ${configPath}`);
     console.log();
-    printInfo('You can now run Ralph TUI with:');
-    console.log();
-    console.log('  ralph-tui run');
+
+    // Show tracker-specific instructions
+    if (selectedTracker === 'json') {
+      printInfo('You can now run Ralph TUI with:');
+      console.log();
+      console.log('  Create a PRD and tasks:        ralph-tui create-prd');
+      console.log('  Run Ralph on existing tasks:   ralph-tui run --prd <path-to-prd.json>');
+    } else {
+      printInfo('You can now run Ralph TUI with:');
+      console.log();
+      console.log('  ralph-tui run');
+    }
     console.log();
     printInfo('Or edit the configuration with:');
     console.log();

@@ -1,0 +1,34 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  status:
+    # Project coverage - overall repo coverage
+    project:
+      default:
+        # Don't fail if coverage drops slightly
+        threshold: 1%
+        # Only fail if coverage is below this absolute value
+        # Current coverage is ~26%, set target slightly below
+        target: 25%
+
+    # Patch coverage - coverage of changed lines in PR
+    patch:
+      default:
+        # Be lenient on patch coverage since we have config/setup code
+        # that's hard to test without complex mocking
+        target: 50%
+        threshold: 5%
+
+# Ignore certain paths from coverage
+ignore:
+  - "website/**/*"
+  - "tests/**/*"
+  - "**/*.test.ts"
+  - "dist/**/*"
+
+# Comment settings for PRs
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: true

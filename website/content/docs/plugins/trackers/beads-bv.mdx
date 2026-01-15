@@ -31,20 +31,53 @@ bd init
 
 ## Basic Usage
 
+<Callout type="warning">
+**Important:** By default, Ralph TUI only shows issues with the `ralph` label. Either add this label to your issues, or change the label filter during setup (leave blank to see all issues).
+</Callout>
+
 <Steps>
-  <Step title="Create Tasks with Dependencies">
-    Set up tasks with dependency relationships:
+  <Step title="Create an Epic">
+    First, create an epic to group your tasks. Add the `ralph` label:
 
     ```bash
-    bd create --title "Database schema" --type task
-    bd create --title "API endpoints" --type task
-    bd create --title "Frontend UI" --type task
+    bd create --title "Backend Refactor" --type epic --label ralph
+    # Created: beads-xyz
+    ```
+  </Step>
 
-    # API depends on schema
+  <Step title="Create Tasks as Children of the Epic">
+    Tasks must be **children** of the epic (using `--parent`) to appear when running with `--epic`:
+
+    ```bash
+    bd create --title "Database schema" --type task --parent beads-xyz --label ralph
+    # Created: beads-schema
+
+    bd create --title "API endpoints" --type task --parent beads-xyz --label ralph
+    # Created: beads-api
+
+    bd create --title "Frontend UI" --type task --parent beads-xyz --label ralph
+    # Created: beads-frontend
+    ```
+
+    <Callout type="info">
+    The `--parent` flag creates a parent-child hierarchy. Without it, tasks won't appear when filtering by epic.
+    </Callout>
+  </Step>
+
+  <Step title="Add Dependencies Between Tasks">
+    Add dependencies so BV can analyze the graph and pick optimal tasks:
+
+    ```bash
+    # API depends on schema being done first
     bd dep add beads-api beads-schema
 
-    # Frontend depends on API
+    # Frontend depends on API being done first
     bd dep add beads-frontend beads-api
+    ```
+
+    This creates the dependency graph:
+    ```
+    schema ──▶ api ──▶ frontend
     ```
   </Step>
 
@@ -53,7 +86,7 @@ bd init
     ralph-tui run --tracker beads-bv --epic beads-xyz
     ```
 
-    BV will recommend "Database schema" first because completing it unblocks the most work.
+    BV will recommend "Database schema" first because completing it unblocks the most downstream work.
   </Step>
 </Steps>
 
@@ -83,9 +116,13 @@ Same as the base Beads tracker:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `beadsDir` | string | `.beads` | Path to .beads directory |
-| `epicId` | string | - | Epic ID to filter tasks |
-| `labels` | string | - | Comma-separated label filter |
+| `epicId` | string | - | Epic ID to filter tasks (set via `--epic` flag) |
+| `labels` | string | `ralph` | Comma-separated label filter (issues must have these labels) |
 | `workingDir` | string | `.` | Working directory for commands |
+
+<Callout type="info">
+See the [Beads Tracker docs](/docs/plugins/trackers/beads#label-filtering) for details on label filtering.
+</Callout>
 
 ## How BV Selects Tasks
 
