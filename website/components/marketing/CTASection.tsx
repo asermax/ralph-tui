@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { motion, useInView } from 'framer-motion';
 import { BookOpen, Star, ChevronRight } from 'lucide-react';
 import type { Variants } from 'framer-motion';
+import { CopyableCommand } from '@/components/ui/CopyableCommand';
 
 /**
  * Animation variants for the container with staggered children.
@@ -70,6 +71,8 @@ const orbVariants: Variants = {
     },
   },
 };
+
+
 
 /**
  * Animated terminal prompt cursor that blinks.
@@ -306,21 +309,12 @@ export function CTASection() {
             </a>
           </motion.div>
 
-          {/* Terminal command hint */}
+          {/* Terminal command hint with copy button */}
           <motion.div
             variants={itemVariants}
             className="mt-10 flex items-center justify-center"
           >
-            <div className="inline-flex items-center gap-2 rounded-md border border-border-muted/50 bg-bg-secondary/50 px-4 py-2 backdrop-blur-sm">
-              <span className="font-mono text-xs text-fg-muted">$</span>
-              <code className="font-mono text-sm text-fg-secondary">
-                bun install -g ralph-tui
-              </code>
-              <span className="font-mono text-xs text-fg-dim">&&</span>
-              <code className="font-mono text-sm text-fg-secondary">
-                ralph-tui init
-              </code>
-            </div>
+            <CopyableCommand>bun install -g ralph-tui && ralph-tui init</CopyableCommand>
           </motion.div>
         </motion.div>
 

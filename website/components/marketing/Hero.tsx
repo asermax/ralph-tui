@@ -6,55 +6,9 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-/**
- * Copy icon SVG for the install command.
- */
-function CopyIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-    </svg>
-  );
-}
-
-/**
- * Check icon for copied state feedback.
- */
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
+import { CopyableCommand } from '@/components/ui/CopyableCommand';
 
 /**
  * GitHub icon for the secondary CTA button.
@@ -99,103 +53,7 @@ function ArrowRightIcon({ className }: { className?: string }) {
   );
 }
 
-const INSTALL_COMMAND = 'bun install -g ralph-tui';
 
-/**
- * Install command block component with copy-to-clipboard functionality.
- */
-function InstallCommand() {
-  const [copied, setCopied] = useState(false);
-
-  // Track timeout for cleanup
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      // Try modern clipboard API first
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(INSTALL_COMMAND);
-      } else {
-        // Fallback for HTTP or older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = INSTALL_COMMAND;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      setCopied(true);
-      // Clear any existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }, []);
-
-  return (
-    <div className="group relative w-full max-w-md">
-      {/* Glow effect behind the command block */}
-      <div
-        className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary opacity-30 blur-sm transition-opacity duration-500 group-hover:opacity-50"
-        aria-hidden="true"
-      />
-
-      <div className="relative flex items-center justify-between gap-3 rounded-lg border border-border-active/40 bg-bg-primary/90 px-4 py-3 backdrop-blur-sm">
-        {/* Terminal prompt indicator */}
-        <div className="flex items-center gap-3">
-          <span className="select-none font-mono text-sm text-accent-tertiary">
-            $
-          </span>
-          <code className="font-mono text-sm text-fg-primary sm:text-base">
-            {INSTALL_COMMAND}
-          </code>
-        </div>
-
-        {/* Copy button */}
-        <button
-          type="button"
-          onClick={handleCopy}
-          className={[
-            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
-            'font-mono text-xs font-medium tracking-wide',
-            'transition-all duration-150 ease-out',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary',
-            copied
-              ? 'bg-status-success/20 text-status-success'
-              : 'bg-bg-tertiary text-fg-muted hover:bg-bg-highlight hover:text-fg-secondary',
-          ].join(' ')}
-          aria-label={copied ? 'Copied!' : 'Copy install command'}
-        >
-          {copied ? (
-            <>
-              <CheckIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Copied!</span>
-            </>
-          ) : (
-            <>
-              <CopyIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Copy</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Animated typing cursor that blinks.
@@ -319,7 +177,7 @@ export function Hero() {
           style={{ animationDelay: '300ms' }}
         >
           <div className="flex justify-center">
-            <InstallCommand />
+            <CopyableCommand variant="hero">bun install -g ralph-tui</CopyableCommand>
           </div>
         </div>
 

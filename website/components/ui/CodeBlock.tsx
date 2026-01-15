@@ -7,11 +7,10 @@
 
 import {
   forwardRef,
-  useState,
-  useCallback,
   type HTMLAttributes,
   type ReactNode,
 } from 'react';
+import { CopyButton } from './CopyButton';
 
 interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
   /** Programming language for the badge display */
@@ -74,52 +73,7 @@ function getLanguageLabel(lang?: string): string {
   return languageLabels[normalized] || lang.toUpperCase();
 }
 
-/**
- * Copy icon SVG component.
- */
-function CopyIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-    </svg>
-  );
-}
 
-/**
- * Check icon SVG component for copied state.
- */
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
 
 /**
  * Base container styles - terminal window aesthetic.
@@ -160,36 +114,7 @@ const badgeStyles = [
   'select-none',
 ].join(' ');
 
-/**
- * Copy button styles.
- */
-const copyButtonStyles = [
-  'inline-flex items-center gap-1.5',
-  'px-2 py-1',
-  'rounded-sm',
-  'font-mono text-[11px] font-medium tracking-wide',
-  'text-fg-muted',
-  'bg-transparent',
-  'border border-transparent',
-  'transition-all duration-150 ease-out',
-  // Hover state
-  'hover:text-fg-secondary',
-  'hover:bg-bg-tertiary',
-  'hover:border-border-muted',
-  // Focus state
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-1 focus-visible:ring-offset-bg-primary',
-  // Active state
-  'active:bg-bg-highlight',
-].join(' ');
 
-/**
- * Copy button success state styles.
- */
-const copyButtonSuccessStyles = [
-  'text-status-success',
-  'bg-status-success/10',
-  'border-status-success/30',
-].join(' ');
 
 /**
  * Code content wrapper styles.
@@ -282,33 +207,6 @@ export const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
     },
     ref
   ) => {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = useCallback(async () => {
-      if (!code) return;
-
-      try {
-        // Try modern clipboard API first
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(code);
-        } else {
-          // Fallback for HTTP or older browsers
-          const textArea = document.createElement('textarea');
-          textArea.value = code;
-          textArea.style.position = 'fixed';
-          textArea.style.opacity = '0';
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
-        }
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy code:', err);
-      }
-    }, [code]);
-
     const displayLabel = getLanguageLabel(language);
     const showHeader = displayLabel || title || code;
 
@@ -334,24 +232,11 @@ export const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
               )}
 
               {code && (
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className={`${copyButtonStyles} ${copied ? copyButtonSuccessStyles : ''}`}
-                  aria-label={copied ? 'Copied!' : 'Copy code to clipboard'}
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
+                <CopyButton
+                  text={code}
+                  size="sm"
+                  ariaLabelPrefix="Copy code to clipboard"
+                />
               )}
             </div>
           </div>

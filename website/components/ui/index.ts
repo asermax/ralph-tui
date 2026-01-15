@@ -23,3 +23,11 @@ export type { BadgeProps, BadgeVariant, BadgeSize } from './Badge';
 // CodeBlock component and types
 export { CodeBlock } from './CodeBlock';
 export type { CodeBlockProps } from './CodeBlock';
+
+// CopyButton component, hook, and types
+export { CopyButton, useCopyToClipboard } from './CopyButton';
+export type { CopyButtonProps } from './CopyButton';
+
+// CopyableCommand component and types
+export { CopyableCommand } from './CopyableCommand';
+export type { CopyableCommandProps } from './CopyableCommand';
