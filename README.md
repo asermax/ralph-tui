@@ -70,6 +70,7 @@ Ralph selects the highest-priority task, builds a prompt, executes your AI agent
 - **Real-time TUI**: Watch agent output, control execution with keyboard shortcuts
 - **Subagent Tracing**: See nested agent calls in real-time
 - **Cross-iteration Context**: Automatic progress tracking between tasks
+- **Flexible Skills**: Use PRD/task skills directly in your agent or via the TUI
 
 ## CLI Commands
 
@@ -138,6 +139,19 @@ ralph-tui create-prd --output ./docs
 | `?` | Show help |
 
 See the [full CLI reference](https://ralph-tui.com/docs/cli/overview) for all options.
+
+### Using Skills Directly in Your Agent
+
+After running `ralph-tui setup`, skills are installed to `~/.claude/skills/` and can be used directly in Claude Code:
+
+```bash
+# In Claude Code, use these slash commands:
+/ralph-tui-prd           # Create a PRD interactively
+/ralph-tui-create-json   # Convert PRD to prd.json
+/ralph-tui-create-beads  # Convert PRD to Beads issues
+```
+
+This lets you create PRDs while referencing source files (`@filename`) and using your full conversation context—then use `ralph-tui run` for autonomous execution.
 
 ### Custom Skills Directory
 

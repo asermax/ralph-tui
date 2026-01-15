@@ -94,6 +94,26 @@ Beads provides additional features like:
 - Hierarchy (epics containing stories)
 - Labels and priorities
 
+## Alternative: Using Skills Directly in Your Agent
+
+Prefer to stay in Claude Code or OpenCode? After running `ralph-tui setup`, you can use the installed skills directly in your agent:
+
+```bash
+# In Claude Code or OpenCode, use slash commands:
+/ralph-tui-prd           # Create a PRD interactively
+/ralph-tui-create-json   # Convert PRD to prd.json
+/ralph-tui-create-beads  # Convert PRD to Beads issues
+```
+
+This approach lets you:
+- Reference files with `@filename` during PRD creation
+- Use your existing conversation context
+- Keep your preferred agent interface
+
+<Callout type="tip">
+**Recommended hybrid workflow:** Create your PRD using `/ralph-tui-prd` in Claude Code where you can reference source files, then use `ralph-tui run` for autonomous task execution.
+</Callout>
+
 ## Controlling Execution
 
 While Ralph is running, use these keyboard shortcuts:
