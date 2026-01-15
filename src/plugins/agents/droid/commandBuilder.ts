@@ -1,9 +1,9 @@
 /**
  * ABOUTME: Builds Factory Droid CLI arguments for task execution.
- * Ensures non-interactive flags and working directory are applied.
+ * Uses 'droid exec' subcommand for non-interactive execution.
  */
 
-import { DROID_NON_INTERACTIVE_FLAGS } from './config.js';
+import { DROID_EXEC_SUBCOMMAND, DROID_NON_INTERACTIVE_FLAGS } from './config.js';
 
 export interface DroidCommandArgs {
   prompt: string;
@@ -22,7 +22,9 @@ export function buildDroidCommandArgs({
   skipPermissions,
   enableTracing,
 }: DroidCommandArgs): string[] {
-  const args: string[] = [...DROID_NON_INTERACTIVE_FLAGS];
+  // Start with 'exec' subcommand for non-interactive mode
+  // Format: droid exec [flags] "prompt"
+  const args: string[] = [DROID_EXEC_SUBCOMMAND, ...DROID_NON_INTERACTIVE_FLAGS];
 
   if (model) {
     args.push('--model', model);
@@ -40,6 +42,10 @@ export function buildDroidCommandArgs({
     args.push('--output-format', 'stream-json');
   }
 
-  args.push(prompt, '--cwd', cwd);
+  args.push('--cwd', cwd);
+
+  // Prompt is passed as positional argument to exec subcommand
+  args.push(prompt);
+
   return args;
 }

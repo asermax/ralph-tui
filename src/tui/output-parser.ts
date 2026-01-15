@@ -226,12 +226,24 @@ export class StreamingOutputParser {
   private parsedOutput = '';
   private lastResultText = '';
   private lastCostSummary = '';
-  private readonly isDroid: boolean;
+  private isDroid: boolean;
   private droidCostAccumulator?: DroidCostAccumulator;
 
   constructor(options: StreamingOutputParserOptions = {}) {
     this.isDroid = isDroidAgent(options.agentPlugin);
     if (this.isDroid) {
+      this.droidCostAccumulator = new DroidCostAccumulator();
+    }
+  }
+
+  /**
+   * Update the agent plugin type.
+   * Call this when the agent changes to ensure proper parsing.
+   */
+  setAgentPlugin(agentPlugin: string): void {
+    const wasDroid = this.isDroid;
+    this.isDroid = isDroidAgent(agentPlugin);
+    if (this.isDroid && !wasDroid) {
       this.droidCostAccumulator = new DroidCostAccumulator();
     }
   }
@@ -298,6 +310,9 @@ export class StreamingOutputParser {
         if (costSummary) {
           return costSummary;
         }
+        // Droid event was recognized but nothing to display (e.g., user input echo)
+        // Return undefined to skip rather than falling through to generic parsing
+        return undefined;
       }
     }
 

@@ -499,6 +499,13 @@ export function formatDroidCostSummary(summary: DroidCostSummary): string {
 }
 
 export function formatDroidEventForDisplay(message: DroidJsonlMessage): string | undefined {
+  // Skip user/input message events - these are just echoes of the prompt
+  const eventType = message.type?.toLowerCase();
+  const rawRole = typeof message.raw.role === 'string' ? message.raw.role.toLowerCase() : undefined;
+  if (eventType === 'user' || eventType === 'input' || rawRole === 'user') {
+    return undefined;
+  }
+
   if (message.error) {
     const statusSuffix = message.error.status ? ` (status ${message.error.status})` : '';
     return `Error${statusSuffix}: ${message.error.message}`;
@@ -534,8 +541,30 @@ export function formatDroidEventForDisplay(message: DroidJsonlMessage): string |
   return undefined;
 }
 
+// Strip ANSI escape sequences from a string
+// These can appear when using pseudo-TTY wrappers like `script`
+// Matches: ESC[...letter, ESC]...BEL, and bare [...letter (without ESC)
+const ANSI_REGEX = /\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][AB012]|\[\?[0-9;]*[a-zA-Z]/g;
+
+function stripAnsi(str: string): string {
+  return str.replace(ANSI_REGEX, '');
+}
+
+// Extract JSON object from a line that may have garbage prefix
+function extractJson(str: string): string {
+  const firstBrace = str.indexOf('{');
+  if (firstBrace === -1) {
+    return str;
+  }
+  return str.slice(firstBrace);
+}
+
 export function parseDroidJsonlLine(line: string): DroidJsonlParseResult {
-  const trimmed = line.trim();
+  // Strip ANSI escape sequences that may be injected by pseudo-TTY
+  const stripped = stripAnsi(line);
+  // Extract JSON starting from first '{' (handles any remaining garbage prefix)
+  const jsonPart = extractJson(stripped);
+  const trimmed = jsonPart.trim();
 
   if (!trimmed) {
     return { success: false, raw: line, error: 'Empty line' };

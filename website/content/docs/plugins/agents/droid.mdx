@@ -126,16 +126,17 @@ Only enable skip permissions for trusted tasks. The agent will run without inter
 Ralph TUI builds a command similar to:
 
 ```bash
-droid --print -p "<prompt>" \
+droid exec \
   --model claude-opus-4-5-20251101 \
   --reasoning-effort high \
   --skip-permissions-unsafe \
   --output-format stream-json \
-  --cwd /path/to/project
+  --cwd /path/to/project \
+  "<prompt>"
 ```
 
 Key behaviors:
-1. **Non-interactive mode**: `--print` passes the prompt
+1. **Non-interactive mode**: Uses `droid exec` subcommand with prompt as argument
 2. **Tracing**: `--output-format stream-json` when tracing is enabled
 3. **Working directory**: `--cwd` set to the current task workspace
 

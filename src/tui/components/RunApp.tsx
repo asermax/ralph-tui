@@ -85,6 +85,8 @@ export interface RunAppProps {
   onFilePathSwitch?: (path: string) => Promise<boolean>;
   /** Current tracker type to determine epic loader mode */
   trackerType?: string;
+  /** Current agent plugin name (from resolved config, includes CLI override) */
+  agentPlugin?: string;
   /** Current epic ID for highlighting in the loader */
   currentEpicId?: string;
   /** Initial subagent panel visibility state (from persisted session) */
@@ -292,6 +294,7 @@ export function RunApp({
   onEpicSwitch,
   onFilePathSwitch,
   trackerType,
+  agentPlugin,
   currentEpicId,
   initialSubagentPanelVisible = false,
   onSubagentPanelVisibilityChange,
@@ -316,15 +319,17 @@ export function RunApp({
   });
   const [currentOutput, setCurrentOutput] = useState('');
   // Streaming parser for live output - extracts readable content and prevents memory bloat
+  // Use agentPlugin prop (from resolved config with CLI override) with fallback to storedConfig
+  const resolvedAgentName = agentPlugin || storedConfig?.defaultAgent || storedConfig?.agent || 'claude';
   const outputParserRef = useRef(
     new StreamingOutputParser({
-      agentPlugin: storedConfig?.defaultAgent || storedConfig?.agent || 'claude',
+      agentPlugin: resolvedAgentName,
     })
   );
   const [elapsedTime, setElapsedTime] = useState(0);
   const [epicName] = useState('Ralph');
   // Derive agent/tracker names from config - these are displayed in the header
-  const agentName = storedConfig?.defaultAgent || storedConfig?.agent || 'claude';
+  const agentName = resolvedAgentName;
   // Use trackerType (from resolved config.tracker.plugin) as priority since it's the actual plugin in use
   const trackerName = trackerType || storedConfig?.defaultTracker || storedConfig?.tracker || 'beads';
   // Dashboard visibility state (off by default for compact header design)
@@ -425,6 +430,13 @@ export function RunApp({
       setSelectedIndex(displayedTasks.length - 1);
     }
   }, [displayedTasks.length, selectedIndex]);
+
+  // Update output parser when agent changes (parser was created before config was loaded)
+  useEffect(() => {
+    if (agentName) {
+      outputParserRef.current.setAgentPlugin(agentName);
+    }
+  }, [agentName]);
 
   // Subscribe to engine events
   useEffect(() => {
@@ -649,7 +661,15 @@ export function RunApp({
   useEffect(() => {
     const state = engine.getState();
     setCurrentIteration(state.currentIteration);
-    setCurrentOutput(state.currentOutput);
+    // Run initial output through parser (engine stores raw output)
+    // Ensure parser knows the agent type first
+    if (agentName) {
+      outputParserRef.current.setAgentPlugin(agentName);
+    }
+    if (state.currentOutput) {
+      outputParserRef.current.push(state.currentOutput);
+      setCurrentOutput(outputParserRef.current.getOutput());
+    }
     // Initialize active agent and rate limit state from engine
     if (state.activeAgent) {
       setActiveAgentState(state.activeAgent);
@@ -657,7 +677,7 @@ export function RunApp({
     if (state.rateLimitState) {
       setRateLimitState(state.rateLimitState);
     }
-  }, [engine]);
+  }, [engine, agentName]);
 
   // Calculate the number of items in iteration history (iterations + pending)
   const iterationHistoryLength = Math.max(iterations.length, totalIterations);
