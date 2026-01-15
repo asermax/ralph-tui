@@ -5,7 +5,7 @@ description: Learn how Ralph TUI uses Handlebars templates to build prompts for 
 
 ## What Are Prompt Templates?
 
-Prompt templates are [Handlebars](https://handlebarsjs.com) templates that transform task data into structured prompts for AI agents. When Ralph picks a task from your tracker, it uses a template to build the prompt that gets sent to Claude Code or OpenCode.
+Prompt templates are [Handlebars](https://handlebarsjs.com) templates that transform task data into structured prompts for AI agents. When Ralph picks a task from your tracker, it uses a template to build the prompt that gets sent to Claude Code, OpenCode, or Factory Droid.
 
 <Callout type="info">
 Handlebars is a simple templating language that uses `{{variable}}` syntax for variable substitution and `{{#if condition}}...{{/if}}` for conditional blocks.
@@ -32,7 +32,7 @@ Templates give you control over how your AI agent receives task information:
 │                                                                 │
 │   {                    ## User Story          Structured        │
 │     id: "US-001",      **ID**: US-001   →    markdown sent      │
-│     title: "Add..."    **Title**: Add...     to Claude/OpenCode │
+│     title: "Add..."    **Title**: Add...     to Claude/OpenCode/Droid │
 │   }                                                             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -54,7 +54,7 @@ When Ralph executes a task:
   </Step>
 
   <Step title="Execute Agent">
-    The rendered prompt is passed to your AI agent (Claude Code or OpenCode).
+    The rendered prompt is passed to your AI agent (Claude Code, OpenCode, or Factory Droid).
   </Step>
 </Steps>
 

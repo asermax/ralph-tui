@@ -241,7 +241,7 @@ async function runChatMode(parsedArgs: CreatePrdArgs): Promise<PrdCreationResult
 
   const cwd = parsedArgs.cwd || process.cwd();
   const outputDir = parsedArgs.output || 'tasks';
-  const timeout = parsedArgs.timeout || 180000;
+  const timeout = parsedArgs.timeout == undefined ? 180000 : parsedArgs.timeout;
 
   console.log(`Using agent: ${agent.meta.name}`);
   console.log('');

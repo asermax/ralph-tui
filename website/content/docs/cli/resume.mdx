@@ -12,7 +12,7 @@ ralph-tui resume [options]
 The `resume` command continues execution from a previously interrupted session. Ralph loads the saved session state and picks up where it left off, automatically resetting any stale "in_progress" tasks.
 
 <Callout type="tip">
-Session state is automatically saved to `.ralph-tui-session.json`. You can resume even after crashes or forced exits.
+Session state is automatically saved to `.ralph-tui/session.json`. You can resume even after crashes or forced exits.
 </Callout>
 
 ## Options
@@ -119,7 +119,7 @@ ralph-tui resume --force
 
 ### "No session found"
 
-No `.ralph-tui-session.json` file exists in the working directory:
+No `.ralph-tui/session.json` file exists in the working directory:
 
 ```bash
 # Start a new session instead

@@ -30,6 +30,7 @@ The interactive wizard performs these steps:
     Scans for available AI coding agents:
     - **Claude Code** - Looks for `claude` CLI
     - **OpenCode** - Looks for `opencode` CLI
+    - **Factory Droid** - Looks for `droid` CLI
 
     Prompts you to select which agent to use as the default.
   </Step>
@@ -74,10 +75,12 @@ Welcome to Ralph TUI Setup!
 Detecting installed agents...
 ✓ Found: claude (Claude Code)
 ✓ Found: opencode (OpenCode)
+✓ Found: droid (Factory Droid)
 
 ? Which agent should be the default?
 ❯ claude - Claude Code (recommended)
   opencode - OpenCode
+  droid - Factory Droid
 
 ? Default tracker type?
 ❯ json - Simple JSON file (no dependencies)
@@ -182,9 +185,13 @@ which claude
 # Check for OpenCode
 which opencode
 
+# Check for Factory Droid
+which droid
+
 # If not found, install one:
 # Claude Code: https://docs.anthropic.com/en/docs/claude-code
 # OpenCode: https://github.com/opencode-ai/opencode
+# Factory Droid: https://docs.factory.ai/reference/cli-reference
 ```
 
 ### "Permission denied" for skills

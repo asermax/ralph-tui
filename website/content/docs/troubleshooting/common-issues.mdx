@@ -172,11 +172,11 @@ Another Ralph TUI instance may be running, or a previous session didn't shut dow
 
 4. **Manually remove the lock file:**
    ```bash
-   rm .ralph-tui-session.json
+   rm .ralph-tui/ralph.lock
    ```
 
 <Callout type="warning">
-Force overriding or deleting the session file will lose any unsaved progress. Only do this if you're certain no other session is running.
+Force overriding or deleting the lock file can lead to parallel runs. Only do this if you're certain no other session is running.
 </Callout>
 
 ### Session Won't Resume
@@ -185,12 +185,12 @@ If `ralph-tui resume` fails:
 
 1. **Check session file exists:**
    ```bash
-   ls -la .ralph-tui-session.json
+   ls -la .ralph-tui/session.json
    ```
 
 2. **Verify session file is valid JSON:**
    ```bash
-   cat .ralph-tui-session.json | jq .
+   cat .ralph-tui/session.json | jq .
    ```
 
 3. **Check for stale locks:**
@@ -200,7 +200,7 @@ If `ralph-tui resume` fails:
 
 4. **Start fresh if needed:**
    ```bash
-   rm .ralph-tui-session.json
+   rm .ralph-tui/session.json
    ralph-tui run --prd ./prd.json
    ```
 

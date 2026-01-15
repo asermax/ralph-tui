@@ -28,6 +28,7 @@ Agent plugins connect to AI coding assistants that execute tasks. They handle:
 **Built-in agents:**
 - **[Claude Code](/docs/plugins/agents/claude)** - Anthropic's Claude CLI with subagent tracing
 - **[OpenCode](/docs/plugins/agents/opencode)** - Open-source multi-provider agent
+- **[Factory Droid](/docs/plugins/agents/droid)** - Factory Droid CLI with JSONL tracing
 
 ### Tracker Plugins
 
@@ -77,14 +78,14 @@ The execution engine orchestrates plugins:
 
 ### Agents
 
-| Feature | Claude Code | OpenCode |
-|---------|-------------|----------|
-| Provider | Anthropic | Multi-provider |
-| Models | sonnet, opus, haiku | Any via provider/model format |
-| Subagent Tracing | Yes (JSONL) | No |
-| File Context | Yes (--add-dir) | Yes (--file) |
-| Streaming | Yes | Yes |
-| Installation | `npm i -g @anthropic-ai/claude-code` | `curl -fsSL https://opencode.ai/install \| bash` |
+| Feature | Claude Code | OpenCode | Factory Droid |
+|---------|-------------|----------|--------------|
+| Provider | Anthropic | Multi-provider | Factory |
+| Models | sonnet, opus, haiku | Any via provider/model format | Factory model list |
+| Subagent Tracing | Yes (JSONL) | No | Yes (JSONL) |
+| File Context | Yes (--add-dir) | Yes (--file) | No (uses `--cwd`) |
+| Streaming | Yes | Yes | Yes |
+| Installation | `npm i -g @anthropic-ai/claude-code` | `curl -fsSL https://opencode.ai/install \| bash` | [Factory Droid CLI](https://docs.factory.ai/reference/cli-reference) |
 
 ### Trackers
 
@@ -203,5 +204,5 @@ Key methods for trackers:
 
 Learn about specific plugins:
 
-- **Agents**: [Claude Code](/docs/plugins/agents/claude) | [OpenCode](/docs/plugins/agents/opencode)
+- **Agents**: [Claude Code](/docs/plugins/agents/claude) | [OpenCode](/docs/plugins/agents/opencode) | [Factory Droid](/docs/plugins/agents/droid)
 - **Trackers**: [JSON](/docs/plugins/trackers/json) | [Beads](/docs/plugins/trackers/beads) | [Beads-BV](/docs/plugins/trackers/beads-bv)

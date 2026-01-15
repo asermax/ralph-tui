@@ -78,7 +78,10 @@ ralph-tui logs --clean --keep 10
 
 ## Session Inspection
 
-The session file (`.ralph-tui-session.json`) contains the complete state of your Ralph TUI session.
+The session file (`.ralph-tui/session.json`) contains the complete state of your Ralph TUI session.
+
+Session metadata is stored separately in `.ralph-tui/session-meta.json`.
+Lock information is stored in `.ralph-tui/ralph.lock`.
 
 ### Viewing Session State
 
@@ -90,23 +93,41 @@ ralph-tui status
 ralph-tui status --json
 
 # Raw session file (when ralph-tui isn't running)
-cat .ralph-tui-session.json | jq .
+cat .ralph-tui/session.json | jq .
 ```
 
 ### Session File Structure
 
 ```json
 {
-  "version": "1.0.0",
+  "version": 1,
+  "sessionId": "ses_abc123",
+  "status": "running",
   "startedAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:45:00Z",
   "currentIteration": 5,
-  "taskStatuses": {
-    "US-001": "completed",
-    "US-002": "in_progress",
-    "US-003": "pending"
+  "maxIterations": 10,
+  "tasksCompleted": 2,
+  "isPaused": false,
+  "agentPlugin": "droid",
+  "model": "claude-opus-4-5-20251101",
+  "trackerState": {
+    "plugin": "beads-bv",
+    "epicId": "ralph-tui-dui",
+    "totalTasks": 3,
+    "tasks": [
+      {
+        "id": "US-001",
+        "title": "Add new todo items",
+        "status": "completed",
+        "completedInSession": true
+      }
+    ]
   },
-  "activeTaskId": "US-002",
-  "lockPid": 12345
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/path/to/project",
+  "activeTaskIds": ["US-002"]
 }
 ```
 
@@ -119,11 +140,11 @@ cat .ralph-tui-session.json | jq .
     <TabsTrigger value="missing">Missing File</TabsTrigger>
   </TabsList>
   <TabsContent value="stale-lock">
-    If the `lockPid` refers to a dead process:
+    If the lock file refers to a dead process:
 
     ```bash
     # Check if the process exists
-    ps -p $(cat .ralph-tui-session.json | jq -r '.lockPid')
+    ps -p $(cat .ralph-tui/ralph.lock | jq -r '.pid')
 
     # Force resume if it doesn't
     ralph-tui resume --force
@@ -134,10 +155,10 @@ cat .ralph-tui-session.json | jq .
 
     ```bash
     # Validate JSON syntax
-    cat .ralph-tui-session.json | jq . 2>&1
+    cat .ralph-tui/session.json | jq . 2>&1
 
     # Back up and recreate if corrupted
-    mv .ralph-tui-session.json .ralph-tui-session.json.bak
+    mv .ralph-tui/session.json .ralph-tui/session.json.bak
     ralph-tui run --prd ./prd.json
     ```
   </TabsContent>

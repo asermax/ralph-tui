@@ -27,7 +27,7 @@ import type {
  */
 const SESSION_DIR = '.ralph-tui';
 const LOCK_FILE = 'ralph.lock';
-const SESSION_FILE = 'session.json';
+const SESSION_FILE = 'session-meta.json';
 
 /**
  * Check if a process is running

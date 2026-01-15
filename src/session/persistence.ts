@@ -224,6 +224,10 @@ export async function loadPersistedSession(
     // Validate required fields exist
     const validationError = validateLoadedSession(parsed);
     if (validationError) {
+      const parsedRecord = parsed as Record<string, unknown>;
+      if (typeof parsedRecord.id === 'string' && typeof parsedRecord.status === 'string') {
+        return null;
+      }
       console.warn(
         `Invalid session file: ${validationError}. ` +
           'Delete .ralph-tui/session.json to start fresh.'
