@@ -245,6 +245,17 @@ function formatMetadataHeader(metadata: IterationLogMetadata): string {
     lines.push(`- **Epic**: ${metadata.epicId}`);
   }
 
+  // Add sandbox configuration if present
+  if (metadata.sandboxMode) {
+    const modeDisplay = metadata.resolvedSandboxMode
+      ? `${metadata.sandboxMode} (${metadata.resolvedSandboxMode})`
+      : metadata.sandboxMode;
+    lines.push(`- **Sandbox Mode**: ${modeDisplay}`);
+  }
+  if (metadata.sandboxNetwork !== undefined) {
+    lines.push(`- **Sandbox Network**: ${metadata.sandboxNetwork ? 'Enabled' : 'Disabled'}`);
+  }
+
   // Add completion summary if present
   if (metadata.completionSummary) {
     lines.push(`- **Completion Summary**: ${metadata.completionSummary}`);
@@ -424,6 +435,24 @@ function parseMetadataHeader(header: string): IterationLogMetadata | null {
     const model = extractValue('Model');
     const epicId = extractValue('Epic');
 
+    // Parse sandbox configuration
+    const sandboxModeStr = extractValue('Sandbox Mode');
+    let sandboxMode: string | undefined;
+    let resolvedSandboxMode: string | undefined;
+    if (sandboxModeStr) {
+      // Format is either "mode" or "mode (resolved)"
+      const sandboxMatch = sandboxModeStr.match(/^(\w+)(?:\s*\((\w+-?\w*)\))?$/);
+      if (sandboxMatch) {
+        sandboxMode = sandboxMatch[1];
+        resolvedSandboxMode = sandboxMatch[2];
+      }
+    }
+
+    const sandboxNetworkStr = extractValue('Sandbox Network');
+    const sandboxNetwork = sandboxNetworkStr === 'Enabled' ? true
+      : sandboxNetworkStr === 'Disabled' ? false
+      : undefined;
+
     return {
       iteration,
       taskId,
@@ -439,6 +468,9 @@ function parseMetadataHeader(header: string): IterationLogMetadata | null {
       agentPlugin,
       model,
       epicId,
+      sandboxMode,
+      resolvedSandboxMode,
+      sandboxNetwork,
     };
   } catch {
     return null;
@@ -499,6 +531,7 @@ export async function saveIterationLog(
 
   // Detect new options object format by checking for any of its unique keys
   const isOptionsObject = options && (
+    'config' in options ||
     'subagentTrace' in options ||
     'sandboxConfig' in options ||
     'resolvedSandboxMode' in options
@@ -902,3 +935,13 @@ function computeTraceStats(states: SubagentState[]): SubagentTraceStats {
     maxDepth,
   };
 }
+
+/**
+ * Test-only exports for internal functions.
+ * Do NOT use in production code.
+ */
+export const __test__ = {
+  formatMetadataHeader,
+  parseMetadataHeader,
+  formatDuration,
+};
