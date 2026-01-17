@@ -24,6 +24,24 @@ interface TimelineEvent {
 }
 
 /**
+ * Historic execution context from persisted log metadata.
+ * Used when viewing completed iterations to show what was actually used
+ * during execution, rather than current settings.
+ */
+export interface HistoricExecutionContext {
+  /** Agent plugin used during execution */
+  agentPlugin?: string;
+  /** Model used during execution */
+  model?: string;
+  /** Sandbox mode used during execution */
+  sandboxMode?: string;
+  /** Resolved sandbox mode when configured mode was 'auto' */
+  resolvedSandboxMode?: string;
+  /** Whether network access was enabled in sandbox */
+  sandboxNetwork?: boolean;
+}
+
+/**
  * Props for the IterationDetailView component
  */
 export interface IterationDetailViewProps {
@@ -43,10 +61,12 @@ export interface IterationDetailViewProps {
   subagentStats?: SubagentTraceStats;
   /** Loading state for subagent trace data */
   subagentTraceLoading?: boolean;
-  /** Sandbox configuration (if sandboxing is enabled) */
+  /** Sandbox configuration (if sandboxing is enabled) - used for running iterations */
   sandboxConfig?: SandboxConfig;
-  /** Resolved sandbox mode (when mode is 'auto', this shows what it resolved to) */
+  /** Resolved sandbox mode (when mode is 'auto', this shows what it resolved to) - used for running iterations */
   resolvedSandboxMode?: Exclude<SandboxMode, 'auto'>;
+  /** Historic execution context from persisted logs - used for completed iterations */
+  historicContext?: HistoricExecutionContext;
 }
 
 /**
@@ -585,6 +605,7 @@ export function IterationDetailView({
   subagentTraceLoading,
   sandboxConfig,
   resolvedSandboxMode,
+  historicContext,
 }: IterationDetailViewProps): ReactNode {
   const statusColor = statusColors[iteration.status];
   const statusIndicator = statusIndicators[iteration.status];
@@ -686,8 +707,68 @@ export function IterationDetailView({
           </box>
         </box>
 
-        {/* Sandbox configuration section - shows if sandboxing is enabled */}
-        {sandboxConfig?.enabled && sandboxConfig.mode !== 'off' && (
+        {/* Execution Context section - shows agent and model used */}
+        {(historicContext?.agentPlugin || historicContext?.model) && (
+          <box style={{ marginBottom: 2 }}>
+            <SectionHeader title="Execution Context" />
+            <box
+              style={{
+                padding: 1,
+                backgroundColor: colors.bg.secondary,
+                border: true,
+                borderColor: colors.border.muted,
+              }}
+            >
+              {historicContext.agentPlugin && (
+                <MetadataRow
+                  label="Agent"
+                  value={historicContext.agentPlugin}
+                  valueColor={colors.accent.tertiary}
+                />
+              )}
+              {historicContext.model && (
+                <MetadataRow
+                  label="Model"
+                  value={historicContext.model}
+                  valueColor={colors.accent.primary}
+                />
+              )}
+            </box>
+          </box>
+        )}
+
+        {/* Sandbox configuration section - shows if sandboxing was enabled */}
+        {/* For completed iterations, use historic context; for running iterations, use current config */}
+        {(historicContext?.sandboxMode && historicContext.sandboxMode !== 'off') ? (
+          <box style={{ marginBottom: 2 }}>
+            <SectionHeader title="Sandbox Configuration" />
+            <box
+              style={{
+                padding: 1,
+                backgroundColor: colors.bg.secondary,
+                border: true,
+                borderColor: colors.status.info,
+              }}
+            >
+              <MetadataRow
+                label="Mode"
+                value={
+                  historicContext.sandboxMode === 'auto' && historicContext.resolvedSandboxMode
+                    ? `auto (${historicContext.resolvedSandboxMode})`
+                    : historicContext.sandboxMode
+                }
+                valueColor={colors.status.info}
+              />
+              {historicContext.sandboxNetwork !== undefined && (
+                <MetadataRow
+                  label="Network Access"
+                  value={historicContext.sandboxNetwork ? 'Enabled' : 'Disabled'}
+                  valueColor={historicContext.sandboxNetwork ? colors.status.success : colors.status.warning}
+                />
+              )}
+            </box>
+          </box>
+        ) : (sandboxConfig?.enabled && sandboxConfig.mode !== 'off' && !historicContext) && (
           <box style={{ marginBottom: 2 }}>
             <SectionHeader title="Sandbox Configuration" />
             <box

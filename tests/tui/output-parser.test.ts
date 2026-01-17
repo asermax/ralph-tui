@@ -93,6 +93,47 @@ describe('output-parser', () => {
       expect(result).toContain('[Agent output could not be parsed');
       expect(result).toContain('truncated');
     });
+
+    test('should parse correctly with explicit claude agentPlugin', () => {
+      const jsonl = JSON.stringify({
+        type: 'result',
+        result: 'Claude result with explicit agent',
+      });
+      const result = parseAgentOutput(jsonl, 'claude');
+      expect(result).toBe('Claude result with explicit agent');
+    });
+
+    test('should parse correctly with undefined agentPlugin', () => {
+      const jsonl = JSON.stringify({
+        type: 'result',
+        result: 'Result parsed without agent specified',
+      });
+      const result = parseAgentOutput(jsonl, undefined);
+      expect(result).toBe('Result parsed without agent specified');
+    });
+
+    test('should use droid parser when agentPlugin is droid', () => {
+      // Droid format may differ, but plain text should pass through
+      const plainText = 'Droid agent plain text output';
+      const result = parseAgentOutput(plainText, 'droid');
+      expect(result).toContain('Droid agent plain text output');
+    });
+
+    test('should handle assistant events with claude agentPlugin', () => {
+      const jsonl = JSON.stringify({
+        type: 'assistant',
+        message: { content: 'Claude assistant message' },
+      });
+      const result = parseAgentOutput(jsonl, 'claude');
+      expect(result).toContain('Claude assistant message');
+    });
+
+    test('should return raw output for short unparseable JSON', () => {
+      // Short JSON that can't be parsed falls through to stripAnsiCodes(rawOutput)
+      const shortBadJson = '{"incomplete';
+      const result = parseAgentOutput(shortBadJson);
+      expect(result).toBe('{"incomplete');
+    });
   });
 
   describe('formatOutputForDisplay', () => {

@@ -147,6 +147,7 @@ function mergeConfigs(global: StoredConfig, project: StoredConfig): StoredConfig
   if (project.outputDir !== undefined) merged.outputDir = project.outputDir;
   if (project.agent !== undefined) merged.agent = project.agent;
   if (project.agentCommand !== undefined) merged.agentCommand = project.agentCommand;
+  if (project.command !== undefined) merged.command = project.command;
   if (project.tracker !== undefined) merged.tracker = project.tracker;
 
   // Replace arrays entirely if present in project config
@@ -311,6 +312,15 @@ function getDefaultAgentConfig(
       result = {
         ...result,
         rateLimitHandling: storedConfig.rateLimitHandling,
+      };
+    }
+
+    // Apply command shorthand (only if not already set on agent config)
+    // This allows users to specify a custom executable like 'ccr code' for Claude Code Router
+    if (storedConfig.command && !result.command) {
+      result = {
+        ...result,
+        command: storedConfig.command,
       };
     }
 
