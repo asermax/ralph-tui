@@ -111,6 +111,8 @@ export interface RunAppProps {
   sandboxConfig?: SandboxConfig;
   /** Resolved sandbox mode (when mode is 'auto', this shows what it resolved to) */
   resolvedSandboxMode?: Exclude<SandboxMode, 'auto'>;
+  /** Whether to show the epic loader immediately on startup (for json tracker without PRD path) */
+  initialShowEpicLoader?: boolean;
 }
 
 /**
@@ -317,6 +319,7 @@ export function RunApp({
   currentModel,
   sandboxConfig,
   resolvedSandboxMode,
+  initialShowEpicLoader = false,
 }: RunAppProps): ReactNode {
   const { width, height } = useTerminalDimensions();
   const renderer = useRenderer();
@@ -380,8 +383,8 @@ export function RunApp({
   const [currentTaskTitle, setCurrentTaskTitle] = useState<string | undefined>(undefined);
   // Current iteration start time (ISO timestamp)
   const [currentIterationStartedAt, setCurrentIterationStartedAt] = useState<string | undefined>(undefined);
-  // Epic loader overlay state
-  const [showEpicLoader, setShowEpicLoader] = useState(false);
+  // Epic loader overlay state (may start visible for json tracker without PRD path)
+  const [showEpicLoader, setShowEpicLoader] = useState(initialShowEpicLoader);
   const [epicLoaderEpics, setEpicLoaderEpics] = useState<TrackerTask[]>([]);
   const [epicLoaderLoading, setEpicLoaderLoading] = useState(false);
   const [epicLoaderError, setEpicLoaderError] = useState<string | undefined>(undefined);
@@ -1591,6 +1594,7 @@ export function RunApp({
           currentTaskTitle={currentTaskTitle}
           sandboxConfig={sandboxConfig}
           resolvedSandboxMode={resolvedSandboxMode}
+          autoCommit={storedConfig?.autoCommit}
         />
       )}
 

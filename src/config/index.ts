@@ -625,7 +625,10 @@ export async function validateConfig(
 
   if (config.tracker.plugin === 'json') {
     if (!config.prdPath) {
-      errors.push('PRD path required for json tracker');
+      // No error - TUI will show file prompt dialog to let user select a file
+      warnings.push(
+        'No PRD path specified for json tracker; TUI will prompt for file selection'
+      );
     } else {
       // Validate PRD file exists and is valid JSON
       const prdFilePath = resolve(config.cwd, config.prdPath);

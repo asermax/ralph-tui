@@ -331,9 +331,9 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
         id: 'labels',
         prompt: 'Labels to filter issues by (comma-separated):',
         type: 'text',
-        default: 'ralph',
+        default: '',
         required: false,
-        help: 'Only show issues with these labels (e.g., "ralph,frontend")',
+        help: 'Only show issues with these labels (e.g., "ralph,frontend"). Leave empty to show all epics.',
       },
     ];
   }
@@ -662,6 +662,14 @@ export class BeadsTrackerPlugin extends BaseTrackerPlugin {
    */
   getEpicId(): string {
     return this.epicId;
+  }
+
+  /**
+   * Get the configured labels for filtering epics.
+   * Used by the empty state guidance to help users understand why no epics are shown.
+   */
+  getConfiguredLabels(): string[] {
+    return this.labels;
   }
 
   /**

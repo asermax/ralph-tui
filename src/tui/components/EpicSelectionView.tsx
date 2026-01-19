@@ -22,6 +22,8 @@ export interface EpicSelectionViewProps {
   loading?: boolean;
   /** Error message if epic loading failed */
   error?: string;
+  /** Configured labels for filtering (used in empty state guidance) */
+  configuredLabels?: string[];
 }
 
 /**
@@ -74,6 +76,7 @@ export function EpicSelectionView({
   trackerName,
   loading = false,
   error,
+  configuredLabels = [],
 }: EpicSelectionViewProps): ReactNode {
   // Loading state
   if (loading) {
@@ -112,8 +115,11 @@ export function EpicSelectionView({
     );
   }
 
-  // No epics found
+  // No epics found - show helpful guidance
   if (epics.length === 0) {
+    const hasLabels = configuredLabels.length > 0;
+    const labelsDisplay = configuredLabels.join(', ');
+
     return (
       <box
         style={{
@@ -123,12 +129,21 @@ export function EpicSelectionView({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: colors.bg.primary,
+          gap: 1,
         }}
       >
-        <text fg={colors.fg.secondary}>No epics found</text>
-        <text fg={colors.fg.muted}>
-          Create an epic in your tracker or use --epic flag
-        </text>
+        <text fg={colors.status.warning}>No epics found</text>
+        <text fg={colors.fg.secondary}> </text>
+        <text fg={colors.fg.secondary}>Please check the following:</text>
+        <text fg={colors.fg.muted}>• You have epic beads defined (bd create --type epic)</text>
+        {hasLabels && (
+          <text fg={colors.fg.muted}>• Those epics have the label(s): {labelsDisplay}</text>
+        )}
+        <text fg={colors.fg.muted}>• Epics have children defined (child tasks/stories)</text>
+        <text fg={colors.fg.muted}>• Child tasks have dependencies defined (optional, for dependency-aware selection)</text>
+        <text fg={colors.fg.secondary}> </text>
+        <text fg={colors.fg.muted}>Or use --epic flag to specify an epic directly</text>
+        <text fg={colors.fg.muted}>Press 'q' to quit</text>
       </box>
     );
   }

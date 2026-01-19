@@ -30,6 +30,8 @@ export interface ProgressDashboardProps {
   sandboxConfig?: SandboxConfig;
   /** Resolved sandbox mode (when mode is 'auto', this shows what it resolved to) */
   resolvedSandboxMode?: Exclude<SandboxMode, 'auto'>;
+  /** Whether auto-commit is enabled */
+  autoCommit?: boolean;
 }
 
 /**
@@ -113,6 +115,7 @@ export function ProgressDashboard({
   currentTaskTitle,
   sandboxConfig,
   resolvedSandboxMode,
+  autoCommit,
 }: ProgressDashboardProps): ReactNode {
   const statusDisplay = getStatusDisplay(status, currentTaskId);
   const sandboxDisplay = getSandboxDisplay(sandboxConfig, resolvedSandboxMode);
@@ -173,6 +176,11 @@ export function ProgressDashboard({
               <text fg={colors.status.info}>{sandboxDisplay}</text>
             </>
           )}
+          <text fg={colors.fg.muted}> | </text>
+          <text fg={colors.fg.secondary}>Auto-commit: </text>
+          <text fg={autoCommit ? colors.status.success : colors.fg.muted}>
+            {autoCommit ? '✓' : '✗'}
+          </text>
         </box>
       </box>
 
