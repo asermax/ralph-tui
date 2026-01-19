@@ -2,6 +2,7 @@
  * ABOUTME: WebSocket server for remote ralph-tui control.
  * Handles client connections, authentication, and message routing.
  * Binds to localhost if no token configured, all interfaces if token is set.
+ * US-4: Extended with full remote control (pause, resume, cancel, state queries, subscriptions).
  */
 
 import type { Server, ServerWebSocket, WebSocketHandler } from 'bun';
@@ -13,9 +14,27 @@ import type {
   PongMessage,
   ServerStatusMessage,
   RemoteServerState,
+  RemoteEngineState,
+  SubscribeMessage,
+  UnsubscribeMessage,
+  GetStateMessage,
+  GetTasksMessage,
+  PauseMessage,
+  ResumeMessage,
+  InterruptMessage,
+  RefreshTasksMessage,
+  AddIterationsMessage,
+  RemoveIterationsMessage,
+  ContinueMessage,
+  StateResponseMessage,
+  TasksResponseMessage,
+  OperationResultMessage,
+  EngineEventMessage,
 } from './types.js';
 import { validateToken, getOrCreateToken } from './token.js';
 import { createAuditLogger, type AuditLogger } from './audit.js';
+import type { ExecutionEngine, EngineEvent } from '../engine/index.js';
+import type { TrackerPlugin } from '../plugins/trackers/types.js';
 
 /**
  * WebSocket data attached to each connection
@@ -39,6 +58,12 @@ interface ClientState {
 
   /** When the client connected (ISO 8601) */
   connectedAt: string;
+
+  /** Whether the client is subscribed to engine events */
+  subscribed: boolean;
+
+  /** Event types to forward (empty means all) */
+  subscribedEventTypes?: string[];
 }
 
 /**
@@ -62,6 +87,12 @@ export interface RemoteServerOptions {
 
   /** Callback when a client disconnects */
   onDisconnect?: (clientId: string) => void;
+
+  /** Execution engine for remote control (US-4) */
+  engine?: ExecutionEngine;
+
+  /** Tracker plugin for task queries (US-4) */
+  tracker?: TrackerPlugin;
 }
 
 /**
@@ -92,6 +123,7 @@ function createMessage<T extends WSMessage>(type: T['type'], data: Omit<T, 'type
 
 /**
  * RemoteServer class for handling WebSocket connections.
+ * US-4: Supports full remote control via engine integration.
  */
 export class RemoteServer {
   private server: Server<WebSocketData> | null = null;
@@ -99,10 +131,71 @@ export class RemoteServer {
   private options: RemoteServerOptions;
   private auditLogger: AuditLogger;
   private startedAt: string | null = null;
+  /** Engine event listener unsubscribe function */
+  private engineUnsubscribe: (() => void) | null = null;
 
   constructor(options: RemoteServerOptions) {
     this.options = options;
     this.auditLogger = createAuditLogger();
+    // Subscribe to engine events if engine is provided
+    if (this.options.engine) {
+      this.setupEngineSubscription();
+    }
+  }
+
+  /**
+   * Set the execution engine for remote control.
+   * Can be called after construction to attach an engine.
+   */
+  setEngine(engine: ExecutionEngine): void {
+    // Unsubscribe from old engine if present
+    if (this.engineUnsubscribe) {
+      this.engineUnsubscribe();
+      this.engineUnsubscribe = null;
+    }
+    this.options.engine = engine;
+    this.setupEngineSubscription();
+  }
+
+  /**
+   * Set the tracker plugin for task queries.
+   */
+  setTracker(tracker: TrackerPlugin): void {
+    this.options.tracker = tracker;
+  }
+
+  /**
+   * Subscribe to engine events and forward to subscribed clients.
+   */
+  private setupEngineSubscription(): void {
+    if (!this.options.engine) return;
+
+    this.engineUnsubscribe = this.options.engine.on((event: EngineEvent) => {
+      this.broadcastEngineEvent(event);
+    });
+  }
+
+  /**
+   * Broadcast an engine event to all subscribed clients.
+   */
+  private broadcastEngineEvent(event: EngineEvent): void {
+    for (const [ws, clientState] of this.clients) {
+      if (!clientState.authenticated || !clientState.subscribed) continue;
+
+      // Filter by event types if specified
+      if (
+        clientState.subscribedEventTypes &&
+        clientState.subscribedEventTypes.length > 0 &&
+        !clientState.subscribedEventTypes.includes(event.type)
+      ) {
+        continue;
+      }
+
+      const message = createMessage<EngineEventMessage>('engine_event', {
+        event,
+      });
+      this.send(ws, message);
+    }
   }
 
   /**
@@ -132,6 +225,7 @@ export class RemoteServer {
           ip: clientIp,
           authenticated: false,
           connectedAt: new Date().toISOString(),
+          subscribed: false,
         };
 
         self.clients.set(ws, state);
@@ -213,6 +307,12 @@ export class RemoteServer {
   async stop(): Promise<void> {
     if (!this.server) {
       return;
+    }
+
+    // Unsubscribe from engine events
+    if (this.engineUnsubscribe) {
+      this.engineUnsubscribe();
+      this.engineUnsubscribe = null;
     }
 
     // Close all client connections
@@ -298,9 +398,346 @@ export class RemoteServer {
       case 'status':
         this.sendStatus(ws);
         break;
+
+      // US-4: Subscription management
+      case 'subscribe':
+        this.handleSubscribe(ws, clientState, message as SubscribeMessage);
+        break;
+      case 'unsubscribe':
+        this.handleUnsubscribe(ws, clientState, message as UnsubscribeMessage);
+        break;
+
+      // US-4: State queries
+      case 'get_state':
+        this.handleGetState(ws, message as GetStateMessage);
+        break;
+      case 'get_tasks':
+        await this.handleGetTasks(ws, message as GetTasksMessage);
+        break;
+
+      // US-4: Engine control operations
+      case 'pause':
+        this.handlePause(ws, message as PauseMessage);
+        break;
+      case 'resume':
+        this.handleResume(ws, message as ResumeMessage);
+        break;
+      case 'interrupt':
+        this.handleInterrupt(ws, message as InterruptMessage);
+        break;
+      case 'refresh_tasks':
+        this.handleRefreshTasks(ws, message as RefreshTasksMessage);
+        break;
+      case 'add_iterations':
+        await this.handleAddIterations(ws, message as AddIterationsMessage);
+        break;
+      case 'remove_iterations':
+        await this.handleRemoveIterations(ws, message as RemoveIterationsMessage);
+        break;
+      case 'continue':
+        this.handleContinue(ws, message as ContinueMessage);
+        break;
+
       default:
         this.sendError(ws, 'UNKNOWN_MESSAGE', `Unknown message type: ${message.type}`);
     }
+  }
+
+  // ============================================================================
+  // US-4: Remote Control Message Handlers
+  // ============================================================================
+
+  /**
+   * Handle subscribe request - start forwarding engine events to client.
+   */
+  private handleSubscribe(
+    ws: ServerWebSocket<WebSocketData>,
+    clientState: ClientState,
+    message: SubscribeMessage
+  ): void {
+    clientState.subscribed = true;
+    clientState.subscribedEventTypes = message.eventTypes;
+
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'subscribe',
+      success: true,
+    });
+    response.id = message.id; // Correlate response with request
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle unsubscribe request - stop forwarding engine events.
+   */
+  private handleUnsubscribe(
+    ws: ServerWebSocket<WebSocketData>,
+    clientState: ClientState,
+    message: UnsubscribeMessage
+  ): void {
+    clientState.subscribed = false;
+    clientState.subscribedEventTypes = undefined;
+
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'unsubscribe',
+      success: true,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle get_state request - return current engine state.
+   */
+  private handleGetState(ws: ServerWebSocket<WebSocketData>, message: GetStateMessage): void {
+    if (!this.options.engine) {
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'get_state',
+        success: false,
+        error: 'No engine attached to server',
+      });
+      response.id = message.id;
+      this.send(ws, response);
+      return;
+    }
+
+    const engineState = this.options.engine.getState();
+    const iterationInfo = this.options.engine.getIterationInfo();
+
+    // Convert to remote-serializable state (Map → array not needed for subagents in current usage)
+    const remoteState: RemoteEngineState = {
+      status: engineState.status,
+      currentIteration: engineState.currentIteration,
+      currentTask: engineState.currentTask,
+      totalTasks: engineState.totalTasks,
+      tasksCompleted: engineState.tasksCompleted,
+      iterations: engineState.iterations,
+      startedAt: engineState.startedAt,
+      currentOutput: engineState.currentOutput,
+      currentStderr: engineState.currentStderr,
+      activeAgent: engineState.activeAgent,
+      rateLimitState: engineState.rateLimitState,
+      maxIterations: iterationInfo.maxIterations,
+      tasks: [], // Will be populated by get_tasks
+    };
+
+    const response = createMessage<StateResponseMessage>('state_response', {
+      state: remoteState,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle get_tasks request - return task list from tracker.
+   */
+  private async handleGetTasks(ws: ServerWebSocket<WebSocketData>, message: GetTasksMessage): Promise<void> {
+    if (!this.options.tracker) {
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'get_tasks',
+        success: false,
+        error: 'No tracker attached to server',
+      });
+      response.id = message.id;
+      this.send(ws, response);
+      return;
+    }
+
+    try {
+      const tasks = await this.options.tracker.getTasks();
+      const response = createMessage<TasksResponseMessage>('tasks_response', {
+        tasks,
+      });
+      response.id = message.id;
+      this.send(ws, response);
+    } catch (error) {
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'get_tasks',
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get tasks',
+      });
+      response.id = message.id;
+      this.send(ws, response);
+    }
+  }
+
+  /**
+   * Handle pause request - pause the engine.
+   */
+  private handlePause(ws: ServerWebSocket<WebSocketData>, message: PauseMessage): void {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'pause', 'No engine attached');
+      return;
+    }
+
+    this.options.engine.pause();
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'pause',
+      success: true,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle resume request - resume the engine.
+   */
+  private handleResume(ws: ServerWebSocket<WebSocketData>, message: ResumeMessage): void {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'resume', 'No engine attached');
+      return;
+    }
+
+    this.options.engine.resume();
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'resume',
+      success: true,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle interrupt request - interrupt/cancel current iteration.
+   * Uses engine.stop() which interrupts the current execution.
+   */
+  private handleInterrupt(ws: ServerWebSocket<WebSocketData>, message: InterruptMessage): void {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'interrupt', 'No engine attached');
+      return;
+    }
+
+    // stop() interrupts the current execution and emits engine:stopped with reason: 'interrupted'
+    this.options.engine.stop().then(() => {
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'interrupt',
+        success: true,
+      });
+      response.id = message.id;
+      this.send(ws, response);
+    }).catch((error) => {
+      this.sendOperationError(
+        ws,
+        message.id,
+        'interrupt',
+        error instanceof Error ? error.message : 'Failed to interrupt'
+      );
+    });
+  }
+
+  /**
+   * Handle refresh_tasks request - refresh task list from tracker.
+   */
+  private handleRefreshTasks(ws: ServerWebSocket<WebSocketData>, message: RefreshTasksMessage): void {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'refresh_tasks', 'No engine attached');
+      return;
+    }
+
+    this.options.engine.refreshTasks();
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'refresh_tasks',
+      success: true,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Handle add_iterations request - add iterations to engine.
+   */
+  private async handleAddIterations(
+    ws: ServerWebSocket<WebSocketData>,
+    message: AddIterationsMessage
+  ): Promise<void> {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'add_iterations', 'No engine attached');
+      return;
+    }
+
+    try {
+      const shouldContinue = await this.options.engine.addIterations(message.count);
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'add_iterations',
+        success: true,
+        data: { shouldContinue },
+      });
+      response.id = message.id;
+      this.send(ws, response);
+    } catch (error) {
+      this.sendOperationError(
+        ws,
+        message.id,
+        'add_iterations',
+        error instanceof Error ? error.message : 'Failed to add iterations'
+      );
+    }
+  }
+
+  /**
+   * Handle remove_iterations request - remove iterations from engine.
+   */
+  private async handleRemoveIterations(
+    ws: ServerWebSocket<WebSocketData>,
+    message: RemoveIterationsMessage
+  ): Promise<void> {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'remove_iterations', 'No engine attached');
+      return;
+    }
+
+    try {
+      const success = await this.options.engine.removeIterations(message.count);
+      const response = createMessage<OperationResultMessage>('operation_result', {
+        operation: 'remove_iterations',
+        success,
+        error: success ? undefined : 'Cannot reduce below current iteration or minimum',
+      });
+      response.id = message.id;
+      this.send(ws, response);
+    } catch (error) {
+      this.sendOperationError(
+        ws,
+        message.id,
+        'remove_iterations',
+        error instanceof Error ? error.message : 'Failed to remove iterations'
+      );
+    }
+  }
+
+  /**
+   * Handle continue request - continue execution after pause/stop.
+   */
+  private handleContinue(ws: ServerWebSocket<WebSocketData>, message: ContinueMessage): void {
+    if (!this.options.engine) {
+      this.sendOperationError(ws, message.id, 'continue', 'No engine attached');
+      return;
+    }
+
+    this.options.engine.continueExecution();
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation: 'continue',
+      success: true,
+    });
+    response.id = message.id;
+    this.send(ws, response);
+  }
+
+  /**
+   * Helper to send an operation error response.
+   */
+  private sendOperationError(
+    ws: ServerWebSocket<WebSocketData>,
+    requestId: string,
+    operation: string,
+    error: string
+  ): void {
+    const response = createMessage<OperationResultMessage>('operation_result', {
+      operation,
+      success: false,
+      error,
+    });
+    response.id = requestId;
+    this.send(ws, response);
   }
 
   /**
