@@ -23,6 +23,7 @@ import type {
   RateLimitState,
   SubagentTreeNode,
   TaskAutoCommittedEvent,
+  TaskAutoCommitFailedEvent,
 } from './types.js';
 import { toEngineSubagentState } from './types.js';
 import type { RalphConfig, RateLimitHandlingConfig } from '../config/types.js';
@@ -1882,7 +1883,8 @@ export class ExecutionEngine {
 
   /**
    * Perform auto-commit after successful task completion.
-   * Failures are logged but do not halt engine execution.
+   * Emits task:auto-committed on success, task:auto-commit-failed on error.
+   * Failures never halt engine execution.
    */
   private async handleAutoCommit(task: TrackerTask, iteration: number): Promise<void> {
     try {
@@ -1896,9 +1898,23 @@ export class ExecutionEngine {
           commitMessage: result.commitMessage!,
           commitSha: result.commitSha,
         });
+      } else if (result.error) {
+        this.emit({
+          type: 'task:auto-commit-failed',
+          timestamp: new Date().toISOString(),
+          task,
+          iteration,
+          error: result.error,
+        });
       }
-    } catch {
-      // Auto-commit failures must never stop the engine
+    } catch (err) {
+      this.emit({
+        type: 'task:auto-commit-failed',
+        timestamp: new Date().toISOString(),
+        task,
+        iteration,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -1929,6 +1945,7 @@ export type {
   IterationResult,
   IterationStatus,
   TaskAutoCommittedEvent,
+  TaskAutoCommitFailedEvent,
   RateLimitState,
   SubagentTreeNode,
 };

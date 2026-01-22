@@ -22,12 +22,13 @@ export interface AutoCommitResult {
 }
 
 /**
- * Check if there are uncommitted changes in the working directory
+ * Check if there are uncommitted changes in the working directory.
+ * Throws if git status cannot be determined (not a git repo, git not installed, etc.).
  */
 export async function hasUncommittedChanges(cwd: string): Promise<boolean> {
   const result = await runProcess('git', ['status', '--porcelain'], { cwd });
   if (!result.success) {
-    return false;
+    throw new Error(`git status failed: ${result.stderr.trim() || 'unknown error (exit code ' + result.exitCode + ')'}`);
   }
   return result.stdout.trim().length > 0;
 }
@@ -42,7 +43,15 @@ export async function performAutoCommit(
   taskTitle: string
 ): Promise<AutoCommitResult> {
   // Check for uncommitted changes first
-  const hasChanges = await hasUncommittedChanges(cwd);
+  let hasChanges: boolean;
+  try {
+    hasChanges = await hasUncommittedChanges(cwd);
+  } catch (err) {
+    return {
+      committed: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
   if (!hasChanges) {
     return {
       committed: false,

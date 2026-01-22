@@ -49,11 +49,10 @@ describe('hasUncommittedChanges', () => {
     expect(result).toBe(true);
   });
 
-  test('returns false for non-git directory', async () => {
+  test('throws for non-git directory', async () => {
     const nonGitDir = await mkdtemp(join(tmpdir(), 'ralph-nogit-'));
     try {
-      const result = await hasUncommittedChanges(nonGitDir);
-      expect(result).toBe(false);
+      await expect(hasUncommittedChanges(nonGitDir)).rejects.toThrow('git status failed');
     } finally {
       await rm(nonGitDir, { recursive: true, force: true });
     }
@@ -108,9 +107,8 @@ describe('performAutoCommit', () => {
   });
 
   test('handles git failures gracefully', async () => {
-    await writeFile(join(tempDir, 'file.txt'), 'content');
-
-    // Corrupt the git repo to trigger a failure
+    // Non-git directory triggers hasUncommittedChanges to throw,
+    // which performAutoCommit catches and returns in the error field
     const nonGitDir = await mkdtemp(join(tmpdir(), 'ralph-broken-'));
     await writeFile(join(nonGitDir, 'file.txt'), 'content');
 
@@ -118,8 +116,8 @@ describe('performAutoCommit', () => {
       const result = await performAutoCommit(nonGitDir, 'TASK-99', 'Should fail');
       // Should not throw - returns error in result
       expect(result.committed).toBe(false);
-      // Either skipReason (no git) or error (git failed)
-      expect(result.skipReason || result.error).toBeDefined();
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('git status failed');
     } finally {
       await rm(nonGitDir, { recursive: true, force: true });
     }

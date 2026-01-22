@@ -208,6 +208,7 @@ export type EngineEventType =
   | 'task:activated'
   | 'task:completed'
   | 'task:auto-committed'
+  | 'task:auto-commit-failed'
   | 'agent:output'
   | 'agent:switched'
   | 'agent:all-limited'
@@ -451,6 +452,19 @@ export interface TaskAutoCommittedEvent extends EngineEventBase {
 }
 
 /**
+ * Task auto-commit failed event - emitted when auto-commit encounters an error
+ */
+export interface TaskAutoCommitFailedEvent extends EngineEventBase {
+  type: 'task:auto-commit-failed';
+  /** Task that failed to be committed */
+  task: TrackerTask;
+  /** Iteration number */
+  iteration: number;
+  /** Error message describing the failure */
+  error: string;
+}
+
+/**
  * Agent output event (streaming)
  */
 export interface AgentOutputEvent extends EngineEventBase {
@@ -551,6 +565,7 @@ export type EngineEvent =
   | TaskActivatedEvent
   | TaskCompletedEvent
   | TaskAutoCommittedEvent
+  | TaskAutoCommitFailedEvent
   | AgentOutputEvent
   | AgentSwitchedEvent
   | AllAgentsLimitedEvent
