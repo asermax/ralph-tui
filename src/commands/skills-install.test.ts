@@ -95,6 +95,18 @@ describe('skills install command (spawn)', () => {
     expect(errorOutput).toContain('Installation failed');
   });
 
+  test('shows no-output error when exit is non-zero with empty output', async () => {
+    mockSpawnExitCode = 1;
+    // No stdout or stderr set — output will be empty string
+
+    await executeSkillsCommand(['install']);
+
+    const errorOutput = consoleErrorSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(errorOutput).toContain('No output from add-skill');
+    const allOutput = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(allOutput).toContain('Run directly for details');
+  });
+
   test('shows error when spawn fails entirely', async () => {
     mockSpawnError = new Error('spawn bunx ENOENT');
 

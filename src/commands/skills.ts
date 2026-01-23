@@ -373,8 +373,12 @@ async function handleInstallSkills(args: string[]): Promise<void> {
     });
   });
 
-  // Parse the output and show our summary
-  if (output.startsWith('Failed to run add-skill')) {
+  // Handle spawn/execution errors before attempting to parse output
+  if (exitCode !== 0 && !output) {
+    console.error(`${RED}Error:${RESET} No output from add-skill`);
+    console.log(`${DIM}Run directly for details: bunx ${addSkillArgs.join(' ')}${RESET}`);
+    return;
+  } else if (output.startsWith('Failed to run add-skill')) {
     console.error(`${RED}Error:${RESET} ${output}`);
     console.log(`${DIM}Ensure bun is installed. You can also run directly:${RESET}`);
     console.log(`${DIM}  bunx ${addSkillArgs.join(' ')}${RESET}`);
