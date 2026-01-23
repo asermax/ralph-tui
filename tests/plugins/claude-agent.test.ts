@@ -6,6 +6,25 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { ClaudeAgentPlugin } from '../../src/plugins/agents/builtin/claude.js';
 import type { ClaudeJsonlMessage, JsonlParseResult } from '../../src/plugins/agents/builtin/claude.js';
+import type { AgentFileContext, AgentExecuteOptions } from '../../src/plugins/agents/types.js';
+
+/**
+ * Test subclass that overrides buildArgs and getStdinInput to use /bin/sh
+ * for verifying environment variable propagation to spawned processes.
+ */
+class EnvTestClaudePlugin extends ClaudeAgentPlugin {
+  protected override buildArgs(
+    _prompt: string,
+    _files?: AgentFileContext[],
+    _options?: AgentExecuteOptions
+  ): string[] {
+    return ['-c', 'printf "%s" "$IS_SANDBOX"'];
+  }
+
+  protected override getStdinInput(): string | undefined {
+    return undefined;
+  }
+}
 
 describe('ClaudeAgentPlugin', () => {
   let plugin: ClaudeAgentPlugin;
@@ -431,6 +450,77 @@ describe('ClaudeAgentPlugin', () => {
       const requirements = plugin.getSandboxRequirements();
       expect(requirements.runtimePaths).toContain('~/.bun');
       expect(requirements.runtimePaths).toContain('~/.nvm');
+    });
+  });
+
+  describe('IS_SANDBOX environment variable', () => {
+    let envPlugin: EnvTestClaudePlugin;
+
+    beforeEach(() => {
+      envPlugin = new EnvTestClaudePlugin();
+    });
+
+    afterEach(async () => {
+      try {
+        if (await envPlugin.isReady()) {
+          await envPlugin.dispose();
+        }
+      } catch {
+        // Ignore errors from already-disposed plugin
+      }
+    });
+
+    test('sets IS_SANDBOX=1 when skipPermissions is true (default)', async () => {
+      await envPlugin.initialize({ command: '/bin/sh', skipPermissions: true });
+
+      const handle = envPlugin.execute('test', []);
+      const result = await handle.promise;
+
+      expect(result.status).toBe('completed');
+      expect(result.stdout).toBe('1');
+    });
+
+    test('sets IS_SANDBOX=1 with default skipPermissions (true by default)', async () => {
+      await envPlugin.initialize({ command: '/bin/sh' });
+
+      const handle = envPlugin.execute('test', []);
+      const result = await handle.promise;
+
+      expect(result.status).toBe('completed');
+      expect(result.stdout).toBe('1');
+    });
+
+    test('does not set IS_SANDBOX when skipPermissions is false', async () => {
+      // Remove IS_SANDBOX from process.env if present to avoid false positive
+      const originalIsSandbox = process.env.IS_SANDBOX;
+      delete process.env.IS_SANDBOX;
+
+      try {
+        await envPlugin.initialize({ command: '/bin/sh', skipPermissions: false });
+
+        const handle = envPlugin.execute('test', []);
+        const result = await handle.promise;
+
+        expect(result.status).toBe('completed');
+        expect(result.stdout).toBe('');
+      } finally {
+        // Restore original value
+        if (originalIsSandbox !== undefined) {
+          process.env.IS_SANDBOX = originalIsSandbox;
+        }
+      }
+    });
+
+    test('user-provided env overrides sandbox env', async () => {
+      await envPlugin.initialize({ command: '/bin/sh', skipPermissions: true });
+
+      const handle = envPlugin.execute('test', [], {
+        env: { IS_SANDBOX: 'custom' },
+      });
+      const result = await handle.promise;
+
+      expect(result.status).toBe('completed');
+      expect(result.stdout).toBe('custom');
     });
   });
 });
