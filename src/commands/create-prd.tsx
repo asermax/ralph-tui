@@ -298,10 +298,8 @@ async function runChatMode(parsedArgs: CreatePrdArgs): Promise<PrdCreationResult
     storedConfig.envExclude
   );
   const envLines = formatEnvExclusionReport(envReport);
-  if (envLines.length > 0) {
-    for (const line of envLines) {
-      console.log(line);
-    }
+  for (const line of envLines) {
+    console.log(line);
   }
 
   // Run preflight check to verify agent can respond before starting conversation

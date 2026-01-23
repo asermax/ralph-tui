@@ -1551,12 +1551,10 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     storedConfig?.envExclude
   );
   const envLines = formatEnvExclusionReport(envReport);
-  if (envLines.length > 0) {
-    for (const line of envLines) {
-      console.log(line);
-    }
-    console.log('');
+  for (const line of envLines) {
+    console.log(line);
   }
+  console.log('');
 
   // Run preflight check if --verify flag is specified
   if (options.verify) {

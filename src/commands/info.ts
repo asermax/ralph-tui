@@ -15,7 +15,7 @@ import { registerBuiltinAgents } from '../plugins/agents/builtin/index.js';
 import { registerBuiltinTrackers } from '../plugins/trackers/builtin/index.js';
 import { getUserConfigDir } from '../templates/engine.js';
 import { listBundledSkills, resolveSkillsPath } from '../setup/skill-installer.js';
-import { getEnvExclusionReport, type EnvExclusionReport } from '../plugins/agents/base.js';
+import { getEnvExclusionReport, formatEnvExclusionReport, type EnvExclusionReport } from '../plugins/agents/base.js';
 
 /**
  * Compute the path to package.json based on the current module location.
@@ -424,15 +424,10 @@ export function formatSystemInfo(info: SystemInfo): string {
   }
 
   // Environment variable exclusion info
-  if (info.envExclusion.blocked.length > 0 || info.envExclusion.allowed.length > 0) {
-    lines.push('');
-    lines.push('Environment (vars matching default exclusion patterns):');
-    if (info.envExclusion.blocked.length > 0) {
-      lines.push(`  Blocked:     ${info.envExclusion.blocked.join(', ')}`);
-    }
-    if (info.envExclusion.allowed.length > 0) {
-      lines.push(`  Passthrough: ${info.envExclusion.allowed.join(', ')}`);
-    }
+  lines.push('');
+  const envLines = formatEnvExclusionReport(info.envExclusion);
+  for (const line of envLines) {
+    lines.push(line);
   }
 
   return lines.join('\n');

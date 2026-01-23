@@ -220,18 +220,22 @@ export function getEnvExclusionReport(
 
 /**
  * Format an env exclusion report as human-readable lines for console output.
- * Returns an empty array if no sensitive vars were detected (reduces noise).
+ * Always returns output so users can see which patterns are active.
  *
  * @param report The exclusion report to format
- * @returns Array of formatted lines (empty if nothing to report)
+ * @returns Array of formatted lines
  */
 export function formatEnvExclusionReport(report: EnvExclusionReport): string[] {
+  const lines: string[] = [];
+
   if (report.blocked.length === 0 && report.allowed.length === 0) {
-    return [];
+    lines.push(
+      `Env filter: no vars matched exclusion patterns (${DEFAULT_ENV_EXCLUDE_PATTERNS.join(', ')})`
+    );
+    return lines;
   }
 
-  const lines: string[] = [];
-  lines.push('Environment variables (matching default exclusion patterns):');
+  lines.push('Env filter:');
 
   if (report.blocked.length > 0) {
     lines.push(`  Blocked:     ${report.blocked.join(', ')}`);

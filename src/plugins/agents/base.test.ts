@@ -17,6 +17,7 @@ import {
   BaseAgentPlugin,
   DEFAULT_ENV_EXCLUDE_PATTERNS,
   getEnvExclusionReport,
+  formatEnvExclusionReport,
 } from './base.js';
 import type {
   AgentPluginMeta,
@@ -1109,6 +1110,56 @@ describe('BaseAgentPlugin envExclude', () => {
 
       expect(report.blocked).toHaveLength(0);
       expect(report.allowed).toHaveLength(0);
+    });
+  });
+
+  describe('formatEnvExclusionReport', () => {
+    test('shows blocked vars', () => {
+      const report = { blocked: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'], allowed: [] };
+      const lines = formatEnvExclusionReport(report);
+
+      expect(lines).toContain('Env filter:');
+      expect(lines.some(l => l.includes('Blocked:') && l.includes('ANTHROPIC_API_KEY'))).toBe(true);
+    });
+
+    test('shows allowed vars', () => {
+      const report = { blocked: ['OPENAI_API_KEY'], allowed: ['ANTHROPIC_API_KEY'] };
+      const lines = formatEnvExclusionReport(report);
+
+      expect(lines).toContain('Env filter:');
+      expect(lines.some(l => l.includes('Passthrough:') && l.includes('ANTHROPIC_API_KEY'))).toBe(true);
+      expect(lines.some(l => l.includes('Blocked:') && l.includes('OPENAI_API_KEY'))).toBe(true);
+    });
+
+    test('shows "no vars matched" when both arrays are empty', () => {
+      const report = { blocked: [], allowed: [] };
+      const lines = formatEnvExclusionReport(report);
+
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.some(l => l.includes('no vars matched exclusion patterns'))).toBe(true);
+      expect(lines.some(l => l.includes('*_API_KEY'))).toBe(true);
+    });
+
+    test('always returns non-empty array', () => {
+      const emptyReport = { blocked: [], allowed: [] };
+      const lines = formatEnvExclusionReport(emptyReport);
+      expect(lines.length).toBeGreaterThan(0);
+    });
+
+    test('shows only blocked when no passthrough configured', () => {
+      const report = { blocked: ['MY_SECRET'], allowed: [] };
+      const lines = formatEnvExclusionReport(report);
+
+      expect(lines.some(l => l.includes('Blocked:'))).toBe(true);
+      expect(lines.some(l => l.includes('Passthrough:'))).toBe(false);
+    });
+
+    test('shows only passthrough when all blocked vars are allowed', () => {
+      const report = { blocked: [], allowed: ['ANTHROPIC_API_KEY'] };
+      const lines = formatEnvExclusionReport(report);
+
+      expect(lines.some(l => l.includes('Passthrough:'))).toBe(true);
+      expect(lines.some(l => l.includes('Blocked:'))).toBe(false);
     });
   });
 

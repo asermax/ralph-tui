@@ -94,13 +94,11 @@ async function runDiagnostics(
     storedConfig.envExclude
   );
   const envLines = formatEnvExclusionReport(envExclusion);
-  if (envLines.length > 0) {
-    log('');
-    for (const line of envLines) {
-      log(`  ${line}`);
-    }
-    log('');
+  log('');
+  for (const line of envLines) {
+    log(`  ${line}`);
   }
+  log('');
 
   // Run detection
   log(`\n🔍 Checking ${agent.meta.name}...\n`);
