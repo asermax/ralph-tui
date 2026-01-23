@@ -224,6 +224,13 @@ export interface StoredConfig {
    */
   envExclude?: string[];
 
+  /**
+   * Shorthand: environment variables to pass through despite matching default exclusion patterns.
+   * Use this to explicitly allow specific keys that are blocked by built-in defaults.
+   * Supports exact names (e.g., "ANTHROPIC_API_KEY") or glob patterns.
+   */
+  envPassthrough?: string[];
+
   /** Whether to auto-commit after successful tasks */
   autoCommit?: boolean;
 
