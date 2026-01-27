@@ -689,7 +689,7 @@ describe('validateConfig', () => {
     expect(result.errors.some((e) => e.includes('delay'))).toBe(true);
   });
 
-  test('warns about missing epic ID for beads tracker', async () => {
+  test('warns about missing epic ID for beads tracker in TUI mode', async () => {
     const config: RalphConfig = {
       agent: { name: 'claude', plugin: 'claude', options: {} },
       tracker: { name: 'beads-bv', plugin: 'beads-bv', options: {} },
@@ -710,6 +710,55 @@ describe('validateConfig', () => {
     const result = await validateConfig(config);
     expect(result.valid).toBe(true);
     expect(result.warnings.some((w) => w.includes('epic'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('interactive epic selection'))).toBe(true);
+  });
+
+  test('warns about missing epic ID for beads-rust tracker in TUI mode', async () => {
+    const config: RalphConfig = {
+      agent: { name: 'claude', plugin: 'claude', options: {} },
+      tracker: { name: 'beads-rust', plugin: 'beads-rust', options: {} },
+      maxIterations: 10,
+      iterationDelay: 1000,
+      cwd: process.cwd(),
+      outputDir: '.ralph-tui/iterations',
+      progressFile: '.ralph-tui/progress.md',
+      showTui: true,
+      errorHandling: {
+        strategy: 'skip',
+        maxRetries: 3,
+        retryDelayMs: 5000,
+        continueOnNonZeroExit: false,
+      },
+    };
+
+    const result = await validateConfig(config);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('epic'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('interactive epic selection'))).toBe(true);
+  });
+
+  test('warns about missing epic ID for beads tracker in headless mode', async () => {
+    const config: RalphConfig = {
+      agent: { name: 'claude', plugin: 'claude', options: {} },
+      tracker: { name: 'beads', plugin: 'beads', options: {} },
+      maxIterations: 10,
+      iterationDelay: 1000,
+      cwd: process.cwd(),
+      outputDir: '.ralph-tui/iterations',
+      progressFile: '.ralph-tui/progress.md',
+      showTui: false,
+      errorHandling: {
+        strategy: 'skip',
+        maxRetries: 3,
+        retryDelayMs: 5000,
+        continueOnNonZeroExit: false,
+      },
+    };
+
+    const result = await validateConfig(config);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes('headless'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('no interactive epic selection'))).toBe(true);
   });
 
   test('reports warning for json tracker without prdPath (TUI will prompt)', async () => {

@@ -49,7 +49,6 @@ import { getTrackerRegistry } from '../plugins/trackers/registry.js';
 import { RunApp } from '../tui/components/RunApp.js';
 import { EpicSelectionApp } from '../tui/components/EpicSelectionApp.js';
 import type { TrackerPlugin, TrackerTask } from '../plugins/trackers/types.js';
-import { BeadsTrackerPlugin } from '../plugins/trackers/builtin/beads/index.js';
 import type { RalphConfig } from '../config/types.js';
 import { projectConfigExists, runSetupWizard, checkAndMigrate } from '../setup/index.js';
 import { createInterruptHandler } from '../interruption/index.js';
@@ -1491,6 +1490,24 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   const options = parseRunArgs(args);
   const cwd = options.cwd ?? process.cwd();
 
+  // Detect markdown PRD files and show helpful guidance
+  if (options.prdPath && /\.(?:md|markdown)$/i.test(options.prdPath)) {
+    console.error('');
+    console.error('Error: Markdown PRD files cannot be used directly with --prd.');
+    console.error('');
+    console.error('The --prd flag expects a JSON file (prd.json format).');
+    console.error('');
+    console.error('To convert your markdown PRD, use one of these commands:');
+    console.error('');
+    console.error(`  ralph-tui convert --to json --input ${options.prdPath}`);
+    console.error(`  ralph-tui convert --to beads --input ${options.prdPath}`);
+    console.error('');
+    console.error('The "json" format creates a prd.json file for the JSON tracker.');
+    console.error('The "beads" format imports tasks directly into your .beads database.');
+    console.error('');
+    process.exit(1);
+  }
+
   // Check if project config exists
   const configExists = await projectConfigExists(cwd);
 
@@ -1631,7 +1648,7 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   }
 
   // If using beads tracker without epic, show epic selection TUI
-  const isBeadsTracker = config.tracker.plugin === 'beads' || config.tracker.plugin === 'beads-bv';
+  const isBeadsTracker = config.tracker.plugin === 'beads' || config.tracker.plugin === 'beads-bv' || config.tracker.plugin === 'beads-rust';
   if (isBeadsTracker && !config.epicId && config.showTui) {
     console.log('No epic specified. Loading epic selection...');
 
@@ -1652,7 +1669,7 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     config.tracker.options.epicId = selectedEpic.id;
 
     // If the tracker has a setEpicId method, call it
-    if (tracker instanceof BeadsTrackerPlugin) {
+    if (tracker.setEpicId) {
       tracker.setEpicId(selectedEpic.id);
     }
 

@@ -146,24 +146,33 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          # Calculate weighted average coverage from all batches
-          # Each batch reports coverage for files it loads, so we use the largest batch
-          # (tests/) as the primary indicator since it loads the most code paths
-
-          # Get coverage from tests/ batch (870 tests, most comprehensive)
-          TESTS_COV=$(grep -m1 "^All files" coverage-output.txt | awk '{print $4}' | tr -d '%' || echo "0")
+          # Use bun's text output to check coverage. Bun reports per-file average
+          # line coverage under "All files | % Funcs | % Lines". Each batch prints
+          # this line. We use the tests/ batch (first line, 1400+ tests) as the
+          # primary indicator since it loads the most code paths.
+          #
+          # Note: we intentionally use bun's text output (per-file average) rather
+          # than lcov --summary (raw line totals). Raw totals are misleadingly low
+          # because a few large UI/server files with ~0% coverage contain thousands
+          # of lines that dwarf the well-tested files. Per-file average treats each
+          # source file equally, which better reflects actual test quality.
 
           echo "Coverage breakdown by batch:"
-          grep "^All files" coverage-output.txt | awk '{print "  " $4}'
+          echo "  %-Funcs  %-Lines"
+          grep "^All files" coverage-output.txt | awk '{printf "  %6s  %6s\n", $4, $6}'
           echo ""
-          echo "Primary coverage (tests/ batch with 870 tests): $TESTS_COV%"
+
+          # Extract line coverage (% Lines, field $6) from the tests/ batch (first "All files" line)
+          LINES_COV=$(awk '/^All files/{print $6; exit}' coverage-output.txt)
+
+          echo "Primary line coverage (tests/ batch): $LINES_COV%"
 
           # Check if coverage is below 40%
-          if [ "$(echo "$TESTS_COV < 40" | bc -l)" -eq 1 ]; then
-            echo "❌ Coverage $TESTS_COV% is below 40% threshold"
+          if [ -z "$LINES_COV" ] || [ "$(echo "$LINES_COV < 40" | bc -l)" -eq 1 ]; then
+            echo "❌ Line coverage $LINES_COV% is below 40% threshold"
             exit 1
           fi
-          echo "✅ Coverage $TESTS_COV% meets 40% threshold"
+          echo "✅ Line coverage $LINES_COV% meets 40% threshold"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

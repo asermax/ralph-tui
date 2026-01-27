@@ -363,4 +363,91 @@ describe('run command', () => {
       expect(output).toContain('ralph-tui run');
     });
   });
+
+  describe('markdown PRD detection', () => {
+    let consoleErrorOutput: string[];
+    let consoleErrorSpy: ReturnType<typeof spyOn>;
+    let processExitSpy: ReturnType<typeof spyOn>;
+
+    beforeEach(() => {
+      consoleErrorOutput = [];
+      consoleErrorSpy = spyOn(console, 'error').mockImplementation((...args) => {
+        consoleErrorOutput.push(args.join(' '));
+      });
+      processExitSpy = spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+      processExitSpy.mockRestore();
+    });
+
+    test('rejects .md files passed to --prd with helpful error', async () => {
+      try {
+        await import('../../src/commands/run.jsx').then((m) =>
+          m.executeRunCommand(['--prd', 'my-prd.md'])
+        );
+      } catch {
+        // Expected: process.exit throws
+      }
+
+      const output = consoleErrorOutput.join('\n');
+      expect(output).toContain('Markdown PRD files cannot be used directly');
+      expect(output).toContain('ralph-tui convert --to json --input my-prd.md');
+      expect(output).toContain('ralph-tui convert --to beads --input my-prd.md');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
+
+    test('rejects .markdown files passed to --prd', async () => {
+      try {
+        await import('../../src/commands/run.jsx').then((m) =>
+          m.executeRunCommand(['--prd', 'spec.markdown'])
+        );
+      } catch {
+        // Expected: process.exit throws
+      }
+
+      const output = consoleErrorOutput.join('\n');
+      expect(output).toContain('Markdown PRD files cannot be used directly');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
+
+    test('rejects .MD files (case-insensitive)', async () => {
+      try {
+        await import('../../src/commands/run.jsx').then((m) =>
+          m.executeRunCommand(['--prd', 'DESIGN.MD'])
+        );
+      } catch {
+        // Expected: process.exit throws
+      }
+
+      const output = consoleErrorOutput.join('\n');
+      expect(output).toContain('Markdown PRD files cannot be used directly');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
+
+    test('does not reject .json files', async () => {
+      // parseRunArgs should accept .json files without triggering the markdown check
+      const result = parseRunArgs(['--prd', 'tasks.json']);
+      expect(result.prdPath).toBe('tasks.json');
+      // The .json file won't trigger process.exit(1) for the markdown check
+      // (it may fail later for other reasons in executeRunCommand, but not for markdown detection)
+    });
+
+    test('includes convert commands with the actual file path', async () => {
+      try {
+        await import('../../src/commands/run.jsx').then((m) =>
+          m.executeRunCommand(['--prd', './docs/feature.md'])
+        );
+      } catch {
+        // Expected: process.exit throws
+      }
+
+      const output = consoleErrorOutput.join('\n');
+      expect(output).toContain('ralph-tui convert --to json --input ./docs/feature.md');
+      expect(output).toContain('ralph-tui convert --to beads --input ./docs/feature.md');
+    });
+  });
 });
