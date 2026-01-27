@@ -1303,19 +1303,26 @@ async function runParallelWithTui(
   let hideDialogCallback: (() => void) | null = null;
   let cancelledCallback: (() => void) | null = null;
 
-  // Mutable state for parallel props (updated from event handlers, read by React render)
-  let workers: WorkerDisplayState[] = [];
-  const workerOutputs = new Map<string, string[]>();
-  let mergeQueue: MergeOperation[] = [];
-  let currentGroup = 0;
-  let totalGroups = 0;
-  let conflicts: FileConflict[] = [];
-  let conflictResolutions: ConflictResolutionResult[] = [];
-  let conflictTaskId = '';
-  let conflictTaskTitle = '';
-  let aiResolving = false;
+  // Shared mutable state object for parallel props.
+  // Using a single object ref avoids closure staleness: the React component holds a reference
+  // to this object and reads current values on each render, even if renders are delayed by
+  // synchronous operations (like execSync in worktree/merge commands) blocking the event loop.
+  const parallelState = {
+    workers: [] as WorkerDisplayState[],
+    workerOutputs: new Map<string, string[]>(),
+    mergeQueue: [] as MergeOperation[],
+    currentGroup: 0,
+    totalGroups: 0,
+    conflicts: [] as FileConflict[],
+    conflictResolutions: [] as ConflictResolutionResult[],
+    conflictTaskId: '',
+    conflictTaskTitle: '',
+    aiResolving: false,
+  };
 
-  // Render trigger — forces React to re-render with updated parallel state
+  // Render trigger — forces React to re-render with updated parallel state.
+  // When null, events are queued implicitly in the shared state object and picked up
+  // on the next render (no events are lost even if the trigger isn't set yet).
   let triggerRerender: (() => void) | null = null;
 
   const renderer = await createCliRenderer({
@@ -1324,41 +1331,44 @@ async function runParallelWithTui(
 
   const root = createRoot(renderer);
 
-  // Subscribe to parallel events and translate to TUI state
+  // Subscribe to parallel events and translate to TUI state.
+  // All mutations target the shared parallelState object so values are visible
+  // to the React component on its next render, regardless of timing.
   parallelExecutor.on((event: ParallelEvent) => {
     switch (event.type) {
       case 'parallel:started':
-        totalGroups = event.totalGroups;
+        parallelState.totalGroups = event.totalGroups;
         break;
 
       case 'parallel:group-started':
-        currentGroup = event.groupIndex;
+        parallelState.currentGroup = event.groupIndex;
         break;
 
       case 'worker:created':
-        // Worker created but not yet started — will appear in getWorkerStates()
+        // Worker created but not yet started — refresh from executor
+        parallelState.workers = parallelExecutor.getWorkerStates();
         break;
 
       case 'worker:started':
       case 'worker:progress':
         // Refresh workers from executor state
-        workers = parallelExecutor.getWorkerStates();
+        parallelState.workers = parallelExecutor.getWorkerStates();
         break;
 
       case 'worker:output':
         // Append output to the worker's output buffer
         if (event.stream === 'stdout' && event.data.trim()) {
-          const existing = workerOutputs.get(event.workerId) ?? [];
+          const existing = parallelState.workerOutputs.get(event.workerId) ?? [];
           // Keep last 500 lines per worker to prevent memory bloat
           const lines = [...existing, ...event.data.split('\n').filter((l: string) => l.trim())];
-          workerOutputs.set(event.workerId, lines.slice(-500));
+          parallelState.workerOutputs.set(event.workerId, lines.slice(-500));
         }
         break;
 
       case 'worker:completed':
       case 'worker:failed':
         // Refresh workers from executor state
-        workers = parallelExecutor.getWorkerStates();
+        parallelState.workers = parallelExecutor.getWorkerStates();
         break;
 
       case 'merge:queued':
@@ -1367,35 +1377,35 @@ async function runParallelWithTui(
       case 'merge:failed':
       case 'merge:rolled-back':
         // Refresh merge queue from executor state
-        mergeQueue = [...parallelExecutor.getState().mergeQueue];
+        parallelState.mergeQueue = [...parallelExecutor.getState().mergeQueue];
         break;
 
       case 'conflict:detected':
-        conflicts = event.conflicts;
-        conflictTaskId = event.taskId;
+        parallelState.conflicts = event.conflicts;
+        parallelState.conflictTaskId = event.taskId;
         // Task title is not on the event — look up from initial tasks
-        conflictTaskTitle = initialTasks.find((t) => t.id === event.taskId)?.title ?? event.taskId;
+        parallelState.conflictTaskTitle = initialTasks.find((t) => t.id === event.taskId)?.title ?? event.taskId;
         break;
 
       case 'conflict:ai-resolving':
-        aiResolving = true;
+        parallelState.aiResolving = true;
         break;
 
       case 'conflict:ai-resolved':
-        aiResolving = false;
-        conflictResolutions = [...conflictResolutions, event.result];
+        parallelState.aiResolving = false;
+        parallelState.conflictResolutions = [...parallelState.conflictResolutions, event.result];
         break;
 
       case 'conflict:ai-failed':
-        aiResolving = false;
+        parallelState.aiResolving = false;
         break;
 
       case 'conflict:resolved':
-        conflicts = [];
-        conflictResolutions = event.results;
-        conflictTaskId = '';
-        conflictTaskTitle = '';
-        aiResolving = false;
+        parallelState.conflicts = [];
+        parallelState.conflictResolutions = event.results;
+        parallelState.conflictTaskId = '';
+        parallelState.conflictTaskTitle = '';
+        parallelState.aiResolving = false;
         break;
 
       case 'parallel:completed':
@@ -1409,7 +1419,9 @@ async function runParallelWithTui(
         break;
     }
 
-    // Trigger React re-render
+    // Trigger React re-render (may be null if React hasn't committed yet —
+    // that's OK because the shared state object will have the latest values
+    // when React does render)
     triggerRerender?.();
   });
 
@@ -1455,15 +1467,31 @@ async function runParallelWithTui(
     ? await detectSandboxMode()
     : undefined;
 
-  // Wrapper component that re-renders when parallel state changes
+  // Wrapper component that re-renders when parallel state changes.
+  // Reads from the shared parallelState object on each render, so it always
+  // sees the latest values even if some event-driven triggerRerender calls
+  // were missed during synchronous blocking operations.
   function ParallelRunAppWrapper(): ReturnType<typeof RunAppWrapper> {
     // State trigger for re-renders from parallel events
     const [, setTick] = useState(0);
 
-    // Register the re-render trigger
+    // Register the re-render trigger + set up a polling interval as safety net.
+    // The polling ensures the TUI stays updated even when execSync calls in
+    // worktree-manager/merge-engine block the event loop and prevent event-driven
+    // re-renders from firing promptly.
     useEffect(() => {
       triggerRerender = () => setTick((t) => t + 1);
-      return () => { triggerRerender = null; };
+
+      // Poll every 500ms to catch any state changes that were missed
+      // while the event loop was blocked by synchronous git operations
+      const pollInterval = setInterval(() => {
+        setTick((t) => t + 1);
+      }, 500);
+
+      return () => {
+        triggerRerender = null;
+        clearInterval(pollInterval);
+      };
     }, []);
 
     return (
@@ -1482,16 +1510,16 @@ async function runParallelWithTui(
         sandboxConfig={config.sandbox}
         resolvedSandboxMode={resolvedSandboxMode}
         isParallelMode={true}
-        parallelWorkers={workers}
-        parallelWorkerOutputs={workerOutputs}
-        parallelMergeQueue={mergeQueue}
-        parallelCurrentGroup={currentGroup}
-        parallelTotalGroups={totalGroups}
-        parallelConflicts={conflicts}
-        parallelConflictResolutions={conflictResolutions}
-        parallelConflictTaskId={conflictTaskId}
-        parallelConflictTaskTitle={conflictTaskTitle}
-        parallelAiResolving={aiResolving}
+        parallelWorkers={parallelState.workers}
+        parallelWorkerOutputs={parallelState.workerOutputs}
+        parallelMergeQueue={parallelState.mergeQueue}
+        parallelCurrentGroup={parallelState.currentGroup}
+        parallelTotalGroups={parallelState.totalGroups}
+        parallelConflicts={parallelState.conflicts}
+        parallelConflictResolutions={parallelState.conflictResolutions}
+        parallelConflictTaskId={parallelState.conflictTaskId}
+        parallelConflictTaskTitle={parallelState.conflictTaskTitle}
+        parallelAiResolving={parallelState.aiResolving}
       />
     );
   }
@@ -1511,12 +1539,14 @@ async function runParallelWithTui(
     if (handler._cancelled) cancelledCallback = handler._cancelled;
   }, 10);
 
-  // Start parallel execution (non-blocking — runs in background while TUI renders)
+  // Start parallel execution (non-blocking — runs in background while TUI renders).
+  // Errors are reported via the parallel:failed event, which updates the shared state.
+  // We must NOT use console.error here — it would corrupt the TUI output.
   parallelExecutor.execute().then(() => {
     // Execution finished — TUI stays open for user review
     triggerRerender?.();
-  }).catch((err) => {
-    console.error('Parallel execution failed:', err instanceof Error ? err.message : err);
+  }).catch(() => {
+    // Error already emitted as parallel:failed event; just trigger a re-render
     triggerRerender?.();
   });
 
@@ -2310,7 +2340,8 @@ export async function executeRunCommand(args: string[]): Promise<void> {
         useParallel = shouldRunParallel(analysis);
       }
 
-      if (useParallel) {
+      if (useParallel && !config.showTui) {
+        // Only log to console in headless mode — TUI mode shows this in the header
         console.log(`Parallel execution enabled: ${analysis.groups.length} group(s), max parallelism ${analysis.maxParallelism}`);
       }
     }

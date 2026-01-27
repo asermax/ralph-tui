@@ -472,7 +472,8 @@ export function RunApp({
   // Iteration history state
   const [iterations, setIterations] = useState<IterationResult[]>([]);
   const [totalIterations] = useState(10); // Default max iterations for display
-  const [viewMode, setViewMode] = useState<ViewMode>('tasks');
+  // In parallel mode, start with the parallel-overview view to show worker status
+  const [viewMode, setViewMode] = useState<ViewMode>(isParallelMode ? 'parallel-overview' : 'tasks');
   const [iterationSelectedIndex, setIterationSelectedIndex] = useState(0);
   // Iteration detail view state
   const [detailIteration, setDetailIteration] = useState<IterationResult | null>(null);

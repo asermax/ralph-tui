@@ -497,11 +497,13 @@ export class MergeEngine {
 
   /**
    * Execute a git command in the main repository.
+   * Pipes stdio so git output doesn't bleed through to the TUI.
    */
   private git(args: string): string {
     return execSync(`git -C "${this.cwd}" ${args}`, {
       encoding: 'utf-8',
       timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   }
 }

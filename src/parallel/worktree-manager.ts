@@ -325,6 +325,7 @@ export class WorktreeManager {
       // Use df to check available space on the filesystem
       const output = execSync(`df -B1 "${this.config.cwd}" | tail -1`, {
         encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
       const parts = output.trim().split(/\s+/);
       // df output: Filesystem 1B-blocks Used Available Use% Mounted
@@ -354,21 +355,25 @@ export class WorktreeManager {
 
   /**
    * Execute a git command in the main repository.
+   * Pipes stdio so git output (especially stderr) doesn't bleed through to the TUI.
    */
   private git(args: string): string {
     return execSync(`git -C "${this.config.cwd}" ${args}`, {
       encoding: 'utf-8',
       timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   }
 
   /**
    * Execute a git command in a specific worktree.
+   * Pipes stdio so git output doesn't bleed through to the TUI.
    */
   private gitInWorktree(worktreePath: string, args: string): string {
     return execSync(`git -C "${worktreePath}" ${args}`, {
       encoding: 'utf-8',
       timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   }
 }
