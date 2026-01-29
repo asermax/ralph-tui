@@ -630,6 +630,48 @@ describe('Template Engine - Installation', () => {
       const content = await readFile(join(templatesDir, 'beads.hbs'), 'utf-8');
       expect(content).toBe('New content');
     });
+
+    // NOTE: These tests MUST run before installBuiltinTemplates below, which uses mock.module()
+    // that pollutes getUserConfigDir for subsequent tests. By placing them here, we ensure
+    // the spyOn(templateEngine, 'getUserConfigDir') works correctly.
+    describe('Function Behavior (sandboxed)', () => {
+      test('returns correct structure with templatesDir and results', () => {
+        const templates = { 'test-tracker': '## Test Template' };
+
+        const result = installGlobalTemplates(templates, false);
+
+        expect(result).toHaveProperty('success');
+        expect(result).toHaveProperty('templatesDir');
+        expect(result).toHaveProperty('results');
+        expect(result.templatesDir).toContain('.config/ralph-tui/templates');
+        expect(result.templatesDir.startsWith(testDir)).toBe(true);
+        expect(Array.isArray(result.results)).toBe(true);
+      });
+
+      test('returns success true when no templates provided', () => {
+        const result = installGlobalTemplates({}, false);
+
+        expect(result.success).toBe(true);
+        expect(result.results.length).toBe(0);
+        expect(result.templatesDir.startsWith(testDir)).toBe(true);
+      });
+
+      test('actually creates template files in sandboxed directory', async () => {
+        const templates = { 'sandbox-test': '## Sandboxed Template Content' };
+
+        const result = installGlobalTemplates(templates, false);
+
+        expect(result.success).toBe(true);
+        expect(result.results.length).toBe(1);
+        expect(result.results[0]?.created).toBe(true);
+
+        const expectedPath = join(testDir, '.config', 'ralph-tui', 'templates', 'sandbox-test.hbs');
+        expect(existsSync(expectedPath)).toBe(true);
+
+        const content = await readFile(expectedPath, 'utf-8');
+        expect(content).toBe('## Sandboxed Template Content');
+      });
+    });
   });
 
   describe('copyBuiltinTemplate', () => {
@@ -1151,49 +1193,6 @@ describe('Template Engine - Error Handling', () => {
     });
   });
 
-  describe('installGlobalTemplates - Function Behavior', () => {
-    // HOME is sandboxed to testDir, so we can safely test actual file system side effects
-
-    test('returns correct structure with templatesDir and results', () => {
-      const templates = { 'test-tracker': '## Test Template' };
-
-      const result = installGlobalTemplates(templates, false);
-
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('templatesDir');
-      expect(result).toHaveProperty('results');
-      expect(result.templatesDir).toContain('.config/ralph-tui/templates');
-      // Verify it's using the sandboxed directory
-      expect(result.templatesDir.startsWith(testDir)).toBe(true);
-      expect(Array.isArray(result.results)).toBe(true);
-    });
-
-    test('returns success true when no templates provided', () => {
-      const result = installGlobalTemplates({}, false);
-
-      expect(result.success).toBe(true);
-      expect(result.results.length).toBe(0);
-      // Verify sandboxed directory
-      expect(result.templatesDir.startsWith(testDir)).toBe(true);
-    });
-
-    test('actually creates template files in sandboxed directory', async () => {
-      const templates = { 'sandbox-test': '## Sandboxed Template Content' };
-
-      const result = installGlobalTemplates(templates, false);
-
-      expect(result.success).toBe(true);
-      expect(result.results.length).toBe(1);
-      expect(result.results[0]?.created).toBe(true);
-
-      // Verify file was actually created in sandboxed location
-      const expectedPath = join(testDir, '.config', 'ralph-tui', 'templates', 'sandbox-test.hbs');
-      expect(existsSync(expectedPath)).toBe(true);
-
-      const content = await readFile(expectedPath, 'utf-8');
-      expect(content).toBe('## Sandboxed Template Content');
-    });
-  });
 });
 
 // ============================================================================
