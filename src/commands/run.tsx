@@ -789,6 +789,10 @@ interface RunAppWrapperProps {
   parallelAiResolving?: boolean;
   /** Maps task IDs to worker IDs for output routing in parallel mode */
   parallelTaskIdToWorkerId?: Map<string, string>;
+  /** Task IDs that completed locally but merge failed (shows ⚠ in TUI) */
+  parallelCompletedLocallyTaskIds?: Set<string>;
+  /** Task IDs where auto-commit was skipped (e.g., files were gitignored) */
+  parallelAutoCommitSkippedTaskIds?: Set<string>;
   /** Number of currently active (running) workers */
   activeWorkerCount?: number;
   /** Total number of workers */
@@ -839,6 +843,8 @@ function RunAppWrapper({
   parallelConflictTaskTitle,
   parallelAiResolving,
   parallelTaskIdToWorkerId,
+  parallelCompletedLocallyTaskIds,
+  parallelAutoCommitSkippedTaskIds,
   activeWorkerCount,
   totalWorkerCount,
   onParallelPause,
@@ -1034,6 +1040,8 @@ function RunAppWrapper({
       parallelConflictTaskTitle={parallelConflictTaskTitle}
       parallelAiResolving={parallelAiResolving}
       parallelTaskIdToWorkerId={parallelTaskIdToWorkerId}
+      parallelCompletedLocallyTaskIds={parallelCompletedLocallyTaskIds}
+      parallelAutoCommitSkippedTaskIds={parallelAutoCommitSkippedTaskIds}
       activeWorkerCount={activeWorkerCount}
       totalWorkerCount={totalWorkerCount}
       onParallelPause={onParallelPause}
@@ -1348,6 +1356,10 @@ async function runParallelWithTui(
     aiResolving: false,
     /** Maps task IDs to their assigned worker IDs for output routing */
     taskIdToWorkerId: new Map<string, string>(),
+    /** Task IDs that completed locally but merge failed (shows ⚠ in TUI) */
+    completedLocallyTaskIds: new Set<string>(),
+    /** Task IDs where auto-commit was skipped (e.g., files were gitignored) */
+    autoCommitSkippedTaskIds: new Set<string>(),
   };
 
   // Render trigger — forces React to re-render with updated parallel state.
@@ -1410,6 +1422,11 @@ async function runParallelWithTui(
         // Remove task from active list in persisted session state
         currentState = removeActiveTask(currentState, event.result.task.id);
         savePersistedSession(currentState).catch(() => {});
+        // Track tasks that the worker marked as completed (agent said COMPLETED)
+        // These will be marked as "completedLocally" if merge subsequently fails
+        if (event.result.taskCompleted) {
+          parallelState.completedLocallyTaskIds.add(event.result.task.id);
+        }
         break;
 
       case 'worker:failed':
@@ -1422,11 +1439,23 @@ async function runParallelWithTui(
 
       case 'merge:queued':
       case 'merge:started':
+        // Refresh merge queue from executor state
+        parallelState.mergeQueue = [...parallelExecutor.getState().mergeQueue];
+        break;
+
       case 'merge:completed':
+        // Refresh merge queue from executor state
+        parallelState.mergeQueue = [...parallelExecutor.getState().mergeQueue];
+        // Task successfully merged — remove from completedLocally set (it's now fully done)
+        parallelState.completedLocallyTaskIds.delete(event.taskId);
+        break;
+
       case 'merge:failed':
       case 'merge:rolled-back':
         // Refresh merge queue from executor state
         parallelState.mergeQueue = [...parallelExecutor.getState().mergeQueue];
+        // Note: completedLocallyTaskIds already has this task if worker completed it,
+        // so it will show ⚠ icon (completed locally but merge failed)
         break;
 
       case 'conflict:detected':
@@ -1475,6 +1504,15 @@ async function runParallelWithTui(
     // that's OK because the shared state object will have the latest values
     // when React does render)
     triggerRerender?.();
+  });
+
+  // Subscribe to engine events forwarded from workers to catch auto-commit-skipped.
+  // This provides early warning when files are gitignored and won't be committed.
+  parallelExecutor.onEngineEvent((event) => {
+    if (event.type === 'task:auto-commit-skipped') {
+      parallelState.autoCommitSkippedTaskIds.add(event.task.id);
+      triggerRerender?.();
+    }
   });
 
   // Cleanup function
@@ -1573,6 +1611,8 @@ async function runParallelWithTui(
         parallelConflictTaskTitle={parallelState.conflictTaskTitle}
         parallelAiResolving={parallelState.aiResolving}
         parallelTaskIdToWorkerId={parallelState.taskIdToWorkerId}
+        parallelCompletedLocallyTaskIds={parallelState.completedLocallyTaskIds}
+        parallelAutoCommitSkippedTaskIds={parallelState.autoCommitSkippedTaskIds}
         activeWorkerCount={parallelState.workers.filter((w) => w.status === 'running').length}
         totalWorkerCount={parallelState.workers.length}
         onParallelPause={() => parallelExecutor.pause()}

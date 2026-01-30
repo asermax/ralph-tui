@@ -178,6 +178,10 @@ export interface RunAppProps {
   parallelAiResolving?: boolean;
   /** Maps task IDs to worker IDs for output routing in parallel mode */
   parallelTaskIdToWorkerId?: Map<string, string>;
+  /** Task IDs that completed locally but merge failed (shows ⚠ in TUI) */
+  parallelCompletedLocallyTaskIds?: Set<string>;
+  /** Task IDs where auto-commit was skipped (e.g., files were gitignored) */
+  parallelAutoCommitSkippedTaskIds?: Set<string>;
   /** Number of currently active (running) workers */
   activeWorkerCount?: number;
   /** Total number of workers */
@@ -440,6 +444,8 @@ export function RunApp({
   parallelConflictTaskTitle = '',
   parallelAiResolving = false,
   parallelTaskIdToWorkerId,
+  parallelCompletedLocallyTaskIds,
+  parallelAutoCommitSkippedTaskIds: _parallelAutoCommitSkippedTaskIds, // Reserved for future status bar warning
   activeWorkerCount,
   totalWorkerCount,
   onParallelPause,
@@ -849,8 +855,9 @@ export function RunApp({
       pending: 2, // Treat pending same as actionable (shouldn't happen often)
       blocked: 3,
       error: 4, // Failed tasks show after blocked
-      done: 5,
-      closed: 6,
+      completedLocally: 5, // Completed but not merged (e.g., no commits)
+      done: 6,
+      closed: 7,
     };
 
     // Use remote tasks when viewing remote, local tasks otherwise
@@ -867,8 +874,27 @@ export function RunApp({
         if (!worker) return task;
 
         if (worker.status === 'running') return { ...task, status: 'active' as TaskStatus };
-        if (worker.status === 'completed') return { ...task, status: 'done' as TaskStatus };
+        if (worker.status === 'completed') {
+          // Check if task completed locally but merge failed (shows ⚠ instead of ✓)
+          if (parallelCompletedLocallyTaskIds?.has(task.id)) {
+            return { ...task, status: 'completedLocally' as TaskStatus };
+          }
+          return { ...task, status: 'done' as TaskStatus };
+        }
         if (worker.status === 'failed') return { ...task, status: 'error' as TaskStatus };
+        return task;
+      });
+    }
+
+    // Also mark tasks as completedLocally if they're in the set but worker has finished
+    // (this catches tasks that were completed but merge failed after worker status updated)
+    if (isParallelMode && parallelCompletedLocallyTaskIds?.size) {
+      sourceTasks = sourceTasks.map((task) => {
+        // Only override if task isn't already showing a terminal status
+        if (parallelCompletedLocallyTaskIds.has(task.id) &&
+            task.status !== 'done' && task.status !== 'active' && task.status !== 'completedLocally') {
+          return { ...task, status: 'completedLocally' as TaskStatus };
+        }
         return task;
       });
     }
@@ -879,7 +905,7 @@ export function RunApp({
       const priorityB = statusPriority[b.status] ?? 10;
       return priorityA - priorityB;
     });
-  }, [tasks, remoteTasks, isViewingRemote, showClosedTasks, isParallelMode, parallelWorkers]);
+  }, [tasks, remoteTasks, isViewingRemote, showClosedTasks, isParallelMode, parallelWorkers, parallelCompletedLocallyTaskIds]);
 
   // Clamp selectedIndex when displayedTasks shrinks (e.g., when hiding closed tasks)
   useEffect(() => {
