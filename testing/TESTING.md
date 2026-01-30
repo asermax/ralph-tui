@@ -8,14 +8,14 @@ This guide describes a **repeatable, idempotent** method for manually testing Ra
 # One-time setup (creates workspace in ~/.cache/ralph-tui/test-workspace)
 ./testing/setup-test-workspace.sh
 
-# Run the test
-bun run dev -- run --prd testing/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
+# Run the test (uses PRD copy in workspace)
+bun run dev -- run --prd ~/.cache/ralph-tui/test-workspace/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
 
 # If something goes wrong, stop and reset
 ./testing/reset-test.sh
 
 # Run again
-bun run dev -- run --prd testing/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
+bun run dev -- run --prd ~/.cache/ralph-tui/test-workspace/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
 ```
 
 ## Architecture
@@ -34,18 +34,27 @@ You can override this by passing a path to setup:
 ./testing/setup-test-workspace.sh /custom/path/to/workspace
 ```
 
+### How the PRD Works
+
+The source PRD (`testing/test-prd.json`) is a **template** that never gets modified:
+- Setup script copies it to the workspace
+- Ralph-TUI modifies the workspace copy during runs
+- Reset script re-copies from source to restore clean state
+
+This prevents accidental commits of test state to the ralph-tui repo.
+
 ### What Gets Shared with Contributors
 
 | File | Location | Shared? |
 |------|----------|---------|
-| `test-prd.json` | `testing/` | Yes (committed) |
+| `test-prd.json` | `testing/` | Yes (template, committed) |
 | `setup-test-workspace.sh` | `testing/` | Yes (committed) |
 | `reset-test.sh` | `testing/` | Yes (committed) |
 | `TESTING.md` | `testing/` | Yes (committed) |
 | `.test-workspace-path` | `testing/` | No (gitignored) |
 | Test workspace | `~/.cache/...` | No (external) |
 
-Contributors clone the repo and run `./setup-test-workspace.sh` to create their own isolated test environment.
+Contributors clone the repo and run `./testing/setup-test-workspace.sh` to create their own isolated test environment.
 
 ## Test PRD Design
 
@@ -71,7 +80,7 @@ TEST-003 (P2) ──────────────────────
 
 | State Type | Location | Reset Method |
 |------------|----------|--------------|
-| Task completion | `testing/test-prd.json` | All `passes` → `false` |
+| Task completion | `<workspace>/test-prd.json` | Re-copied from source |
 | Session state | `<workspace>/.ralph-tui/session.json` | Deleted |
 | Session lock | `<workspace>/.ralph-tui/lock.json` | Deleted |
 | Progress context | `<workspace>/.ralph-tui/progress.md` | Deleted |
@@ -89,6 +98,7 @@ TEST-003 (P2) ──────────────────────
 
 This creates:
 - `~/.cache/ralph-tui/test-workspace/` - Isolated git repo for testing
+- `test-prd.json` - Copy of the test PRD (modified during runs)
 - Initial commit with README and .gitignore
 - Git tag `test-start` for easy hard reset
 - `.test-workspace-path` file (gitignored) to remember location
@@ -96,9 +106,10 @@ This creates:
 ### 2. Running a Test
 
 ```bash
-bun run dev -- run --prd testing/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
+bun run dev -- run --prd ~/.cache/ralph-tui/test-workspace/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace
 ```
 
+The `--prd` flag points to the workspace copy (gets modified during runs).
 The `--cwd` flag tells ralph-tui to execute in the test workspace, where:
 - The agent will create output files
 - Session state (`.ralph-tui/`) will be stored
@@ -138,7 +149,7 @@ To test error handling:
 
 ### 5. Resetting for Re-test
 
-**Soft Reset** (keeps git history):
+**Soft Reset** (keeps git history, re-copies PRD):
 ```bash
 ./testing/reset-test.sh
 ```
@@ -153,12 +164,13 @@ cd ~/.cache/ralph-tui/test-workspace && git reset --hard test-start && git clean
 
 | File | Purpose |
 |------|---------|
-| `testing/test-prd.json` | Test PRD with 5 tasks and dependencies |
-| `testing/setup-test-workspace.sh` | Creates fresh test workspace (external) |
-| `testing/reset-test.sh` | Resets all state for re-testing |
+| `testing/test-prd.json` | Source PRD template (never modified) |
+| `testing/setup-test-workspace.sh` | Creates workspace, copies PRD |
+| `testing/reset-test.sh` | Re-copies PRD, cleans state |
 | `testing/TESTING.md` | This documentation |
 | `testing/.test-workspace-path` | Saved workspace location (gitignored) |
-| `~/.cache/ralph-tui/test-workspace/` | The actual test git repo (created by setup) |
+| `<workspace>/test-prd.json` | Working copy (modified during runs) |
+| `<workspace>/` | The actual test git repo |
 
 ## Troubleshooting
 
@@ -173,11 +185,11 @@ rm ~/.cache/ralph-tui/test-workspace/.ralph-tui/lock.json
 
 ### Task status won't reset
 ```bash
-# Manually verify PRD
-cat testing/test-prd.json | jq '.userStories[].passes'
+# Manually verify workspace PRD
+cat ~/.cache/ralph-tui/test-workspace/test-prd.json | jq '.userStories[].passes'
 
-# Force reset with jq
-jq '.userStories |= map(.passes = false)' testing/test-prd.json > tmp.json && mv tmp.json testing/test-prd.json
+# Re-copy from source
+cp testing/test-prd.json ~/.cache/ralph-tui/test-workspace/test-prd.json
 ```
 
 ### Agent keeps failing
@@ -213,10 +225,10 @@ For automated testing in CI, you can run:
 ./testing/setup-test-workspace.sh
 
 # Run headless with max iterations
-bun run dev -- run --prd testing/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace --headless --iterations 10
+bun run dev -- run --prd ~/.cache/ralph-tui/test-workspace/test-prd.json --cwd ~/.cache/ralph-tui/test-workspace --headless --iterations 10
 
 # Verify completion
-jq '.userStories | all(.passes)' testing/test-prd.json
+jq '.userStories | all(.passes)' ~/.cache/ralph-tui/test-workspace/test-prd.json
 # Should output: true
 
 # Verify output files exist
@@ -227,7 +239,7 @@ test -f ~/.cache/ralph-tui/test-workspace/summary.txt && echo "PASS" || echo "FA
 
 When adding new test scenarios:
 
-1. Add new user stories to `test-prd.json`
+1. Add new user stories to `testing/test-prd.json` (the source template)
 2. Update this documentation
 3. Consider adding automated verification to `reset-test.sh`
 4. Ensure new scenarios maintain idempotency

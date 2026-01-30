@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ABOUTME: Sets up a clean test workspace for Ralph-TUI manual testing.
 # Creates a git repo OUTSIDE ralph-tui to avoid nested repo issues.
+# Copies test-prd.json to workspace so the source template stays clean.
 
 set -euo pipefail
 
@@ -36,18 +37,23 @@ if [ -d "$TEST_WORKSPACE" ]; then
 fi
 
 # Create workspace directory (including parent dirs)
-echo -e "${YELLOW}[1/5] Creating test workspace...${NC}"
+echo -e "${YELLOW}[1/6] Creating test workspace...${NC}"
 mkdir -p "$TEST_WORKSPACE"
 echo -e "${GREEN}  Created: $TEST_WORKSPACE${NC}"
 
 # Initialize git repo
-echo -e "${YELLOW}[2/5] Initializing git repository...${NC}"
+echo -e "${YELLOW}[2/6] Initializing git repository...${NC}"
 cd "$TEST_WORKSPACE"
 git init --initial-branch=main
 echo -e "${GREEN}  Git repo initialized${NC}"
 
+# Copy test PRD to workspace
+echo -e "${YELLOW}[3/6] Copying test PRD...${NC}"
+cp "$SCRIPT_DIR/test-prd.json" "$TEST_WORKSPACE/test-prd.json"
+echo -e "${GREEN}  Copied test-prd.json to workspace${NC}"
+
 # Create initial files
-echo -e "${YELLOW}[3/5] Creating initial files...${NC}"
+echo -e "${YELLOW}[4/6] Creating initial files...${NC}"
 
 # Create a simple README
 cat > README.md << EOF
@@ -65,8 +71,9 @@ This workspace is used to test:
 - Dependency resolution (TEST-004 depends on TEST-001 and TEST-002)
 - Final aggregation (TEST-005 depends on TEST-003 and TEST-004)
 
-## Files Created by Tests
+## Files
 
+- \`test-prd.json\` - The test PRD (copied from source, modified during runs)
 - \`output-a.txt\` - Created by TEST-001
 - \`output-b.txt\` - Created by TEST-002
 - \`output-c.txt\` - Created by TEST-003
@@ -77,13 +84,13 @@ This workspace is used to test:
 
 \`\`\`bash
 # From ralph-tui directory
-bun run dev -- run --prd testing/test-prd.json --cwd $TEST_WORKSPACE
+bun run dev -- run --prd $TEST_WORKSPACE/test-prd.json --cwd $TEST_WORKSPACE
 \`\`\`
 
 ## Reset
 
 \`\`\`bash
-# Soft reset (keeps git history)
+# Soft reset (re-copies PRD, cleans outputs)
 $SCRIPT_DIR/reset-test.sh
 
 # Hard reset (full clean slate)
@@ -112,12 +119,12 @@ git commit -m "Initial test workspace setup"
 echo -e "${GREEN}  Created README.md, .gitignore${NC}"
 
 # Create a git tag for easy reset
-echo -e "${YELLOW}[4/5] Creating reset point...${NC}"
+echo -e "${YELLOW}[5/6] Creating reset point...${NC}"
 git tag -a "test-start" -m "Initial state for testing"
 echo -e "${GREEN}  Created git tag 'test-start' for easy reset${NC}"
 
 # Save workspace location for reset script
-echo -e "${YELLOW}[5/5] Saving workspace location...${NC}"
+echo -e "${YELLOW}[6/6] Saving workspace location...${NC}"
 echo "$TEST_WORKSPACE" > "$SCRIPT_DIR/.test-workspace-path"
 echo -e "${GREEN}  Saved to $SCRIPT_DIR/.test-workspace-path${NC}"
 
@@ -128,7 +135,7 @@ echo ""
 echo -e "Test workspace created at: ${BLUE}$TEST_WORKSPACE${NC}"
 echo ""
 echo -e "To run the test:"
-echo -e "  ${BLUE}bun run dev -- run --prd testing/test-prd.json --cwd $TEST_WORKSPACE${NC}"
+echo -e "  ${BLUE}bun run dev -- run --prd $TEST_WORKSPACE/test-prd.json --cwd $TEST_WORKSPACE${NC}"
 echo ""
 echo -e "To reset everything:"
 echo -e "  ${BLUE}./testing/reset-test.sh${NC}"

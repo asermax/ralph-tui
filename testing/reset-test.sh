@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ABOUTME: Reset script for idempotent Ralph-TUI manual testing.
 # Resets all state to allow re-running the same test from scratch.
+# Re-copies test-prd.json from source to ensure clean state.
 
 set -euo pipefail
 
@@ -28,28 +29,20 @@ echo ""
 # Check if workspace exists
 if [ ! -d "$TEST_WORKSPACE" ]; then
     echo -e "${RED}Test workspace not found at: $TEST_WORKSPACE${NC}"
-    echo -e "Run ${BLUE}$SCRIPT_DIR/setup-test-workspace.sh${NC} first."
+    echo -e "Run ${BLUE}./testing/setup-test-workspace.sh${NC} first."
     exit 1
 fi
 
 echo -e "Workspace: ${BLUE}$TEST_WORKSPACE${NC}"
 echo ""
 
-# 1. Reset the PRD file to initial state (all passes: false)
+# 1. Re-copy the PRD from source (always clean)
 echo -e "${YELLOW}[1/5] Resetting test-prd.json...${NC}"
 if [ -f "$SCRIPT_DIR/test-prd.json" ]; then
-    # Use jq if available (preferred), otherwise use perl (portable fallback)
-    if command -v jq &> /dev/null; then
-        jq '.userStories |= map(.passes = false)' "$SCRIPT_DIR/test-prd.json" > "$SCRIPT_DIR/test-prd.json.tmp"
-        mv "$SCRIPT_DIR/test-prd.json.tmp" "$SCRIPT_DIR/test-prd.json"
-        echo -e "${GREEN}  PRD reset: all tasks set to passes: false${NC}"
-    else
-        # Fallback: use perl (portable across macOS and Linux, unlike sed -i)
-        perl -pi -e 's/"passes": true/"passes": false/g' "$SCRIPT_DIR/test-prd.json"
-        echo -e "${GREEN}  PRD reset (via perl): all tasks set to passes: false${NC}"
-    fi
+    cp "$SCRIPT_DIR/test-prd.json" "$TEST_WORKSPACE/test-prd.json"
+    echo -e "${GREEN}  Re-copied test-prd.json from source (all tasks reset)${NC}"
 else
-    echo -e "${RED}  Warning: test-prd.json not found${NC}"
+    echo -e "${RED}  Warning: source test-prd.json not found at $SCRIPT_DIR/test-prd.json${NC}"
 fi
 
 # 2. Clean up test workspace outputs
@@ -90,4 +83,4 @@ echo -e "${YELLOW}[5/5] Summary...${NC}"
 echo -e "${GREEN}Test environment reset complete!${NC}"
 echo ""
 echo -e "To run the test:"
-echo -e "  ${BLUE}bun run dev -- run --prd testing/test-prd.json --cwd $TEST_WORKSPACE${NC}"
+echo -e "  ${BLUE}bun run dev -- run --prd $TEST_WORKSPACE/test-prd.json --cwd $TEST_WORKSPACE${NC}"
