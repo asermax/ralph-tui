@@ -47,7 +47,7 @@ export function isInteractiveTerminal(): boolean {
 /**
  * Strip mouse tracking and other escape codes from input string
  */
-function stripEscapeCodes(input: string): string {
+export function stripEscapeCodes(input: string): string {
   // Step 1: Remove ALL mouse tracking patterns first (before they get fragmented)
   // Pattern: sequences like 35;106;28M (requires semicolon to avoid false positives like "10m")
   // This catches: 35;106;28M, 100;200M, etc. but NOT "10m"
@@ -82,7 +82,7 @@ function stripEscapeCodes(input: string): string {
 /**
  * Disable mouse tracking in terminal to prevent escape codes from polluting input
  */
-function disableMouseTracking(): void {
+export function disableMouseTracking(): void {
   if (process.stdout.isTTY) {
     // Disable various mouse tracking modes
     process.stdout.write('\x1b[?1000l'); // X10 mouse reporting

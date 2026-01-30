@@ -315,4 +315,313 @@ As a user, I want plain text descriptions.
       );
     });
   });
+
+  describe('H4 header support', () => {
+    test('parses user stories with H4 headers (####)', () => {
+      const md = `# PRD: Test Feature
+
+## Overview
+
+Testing H4 headers.
+
+## User Stories
+
+#### US-001: H4 Story
+
+As a user, I want to use H4 headers for stories.
+
+**Acceptance Criteria:**
+- [ ] H4 headers work
+
+### US-002: H3 Story
+
+As a user, I want to use H3 headers too.
+
+**Acceptance Criteria:**
+- [ ] H3 headers work
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(2);
+
+      expect(result.userStories[0]!.id).toBe('US-001');
+      expect(result.userStories[0]!.title).toBe('H4 Story');
+      expect(result.userStories[0]!.description).toBe(
+        'As a user, I want to use H4 headers for stories.'
+      );
+
+      expect(result.userStories[1]!.id).toBe('US-002');
+      expect(result.userStories[1]!.title).toBe('H3 Story');
+      expect(result.userStories[1]!.description).toBe(
+        'As a user, I want to use H3 headers too.'
+      );
+    });
+
+    test('parses mixed H2, H3, and H4 headers', () => {
+      const md = `# PRD: Mixed Headers
+
+## Overview
+
+Testing all header levels.
+
+## User Stories
+
+## US-001: H2 Story
+
+As a user, I want H2 support.
+
+**Acceptance Criteria:**
+- [ ] Works
+
+### US-002: H3 Story
+
+As a user, I want H3 support.
+
+**Acceptance Criteria:**
+- [ ] Works
+
+#### US-003: H4 Story
+
+As a user, I want H4 support.
+
+**Acceptance Criteria:**
+- [ ] Works
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(3);
+
+      expect(result.userStories[0]!.id).toBe('US-001');
+      expect(result.userStories[0]!.title).toBe('H2 Story');
+
+      expect(result.userStories[1]!.id).toBe('US-002');
+      expect(result.userStories[1]!.title).toBe('H3 Story');
+
+      expect(result.userStories[2]!.id).toBe('US-003');
+      expect(result.userStories[2]!.title).toBe('H4 Story');
+    });
+  });
+
+  describe('Feature X.Y format support', () => {
+    test('parses Feature format (Feature 1.1)', () => {
+      const md = `# PRD: Feature Format Test
+
+## Overview
+
+Testing Feature X.Y format.
+
+## User Stories
+
+### Feature 1.1: F-String Format Specifiers
+
+As a developer, I want f-string support.
+
+**Acceptance Criteria:**
+- [ ] Format specifiers work
+
+### Feature 1.2: StringIO Support
+
+As a developer, I want StringIO support.
+
+**Acceptance Criteria:**
+- [ ] Context manager works
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(2);
+
+      // Feature IDs should be normalized to FEAT-X-Y
+      expect(result.userStories[0]!.id).toBe('FEAT-1-1');
+      expect(result.userStories[0]!.title).toBe('F-String Format Specifiers');
+
+      expect(result.userStories[1]!.id).toBe('FEAT-1-2');
+      expect(result.userStories[1]!.title).toBe('StringIO Support');
+    });
+
+    test('parses mixed US-XXX and Feature formats', () => {
+      const md = `# PRD: Mixed Format Test
+
+## Overview
+
+Testing mixed formats.
+
+## User Stories
+
+### US-001: Standard User Story
+
+As a user, I want standard format.
+
+**Acceptance Criteria:**
+- [ ] Works
+
+### Feature 2.1: Feature Format
+
+As a user, I want feature format.
+
+**Acceptance Criteria:**
+- [ ] Works
+
+### US-002: Another Standard Story
+
+As a user, I want another standard format.
+
+**Acceptance Criteria:**
+- [ ] Works
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(3);
+
+      expect(result.userStories[0]!.id).toBe('US-001');
+      expect(result.userStories[1]!.id).toBe('FEAT-2-1');
+      expect(result.userStories[2]!.id).toBe('US-002');
+    });
+
+    test('parses Feature with H4 headers', () => {
+      const md = `# PRD: Feature H4 Test
+
+## Overview
+
+Testing Feature with H4.
+
+## User Stories
+
+#### Feature 3.5: H4 Feature
+
+As a developer, I want H4 feature support.
+
+**Acceptance Criteria:**
+- [ ] H4 works with features
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(1);
+
+      expect(result.userStories[0]!.id).toBe('FEAT-3-5');
+      expect(result.userStories[0]!.title).toBe('H4 Feature');
+    });
+  });
+
+  describe('All 9 combinations (3 headers × 3 formats)', () => {
+    test('parses all 9 possible combinations', () => {
+      const md = `# PRD: Comprehensive Format Test
+
+## Overview
+
+Testing all 9 combinations: 3 header levels (H2, H3, H4) × 3 ID formats (US-XXX, PREFIX-XXX, Feature X.Y)
+
+## User Stories
+
+## US-001: H2 with US format
+**Acceptance Criteria:**
+- [ ] Works
+
+### US-002: H3 with US format
+**Acceptance Criteria:**
+- [ ] Works
+
+#### US-003: H4 with US format
+**Acceptance Criteria:**
+- [ ] Works
+
+## EPIC-100: H2 with PREFIX format
+**Acceptance Criteria:**
+- [ ] Works
+
+### FEAT-200: H3 with PREFIX format
+**Acceptance Criteria:**
+- [ ] Works
+
+#### BUG-300: H4 with PREFIX format
+**Acceptance Criteria:**
+- [ ] Works
+
+## Feature 1.1: H2 with Feature format
+**Acceptance Criteria:**
+- [ ] Works
+
+### Feature 2.2: H3 with Feature format
+**Acceptance Criteria:**
+- [ ] Works
+
+#### Feature 3.3: H4 with Feature format
+**Acceptance Criteria:**
+- [ ] Works
+`;
+
+      const result = parsePrdMarkdown(md);
+      expect(result.userStories).toHaveLength(9);
+
+      // H2 level
+      expect(result.userStories[0]!.id).toBe('US-001');
+      expect(result.userStories[0]!.title).toBe('H2 with US format');
+
+      expect(result.userStories[3]!.id).toBe('EPIC-100');
+      expect(result.userStories[3]!.title).toBe('H2 with PREFIX format');
+
+      expect(result.userStories[6]!.id).toBe('FEAT-1-1');
+      expect(result.userStories[6]!.title).toBe('H2 with Feature format');
+
+      // H3 level
+      expect(result.userStories[1]!.id).toBe('US-002');
+      expect(result.userStories[1]!.title).toBe('H3 with US format');
+
+      expect(result.userStories[4]!.id).toBe('FEAT-200');
+      expect(result.userStories[4]!.title).toBe('H3 with PREFIX format');
+
+      expect(result.userStories[7]!.id).toBe('FEAT-2-2');
+      expect(result.userStories[7]!.title).toBe('H3 with Feature format');
+
+      // H4 level
+      expect(result.userStories[2]!.id).toBe('US-003');
+      expect(result.userStories[2]!.title).toBe('H4 with US format');
+
+      expect(result.userStories[5]!.id).toBe('BUG-300');
+      expect(result.userStories[5]!.title).toBe('H4 with PREFIX format');
+
+      expect(result.userStories[8]!.id).toBe('FEAT-3-3');
+      expect(result.userStories[8]!.title).toBe('H4 with Feature format');
+    });
+
+    test('validates each format independently', () => {
+      // US-XXX format (exactly 3 digits)
+      const usFormat = `# PRD\n## User Stories\n### US-001: Valid\n**Acceptance Criteria:**\n- [ ] Test`;
+      expect(parsePrdMarkdown(usFormat).userStories).toHaveLength(1);
+
+      // PREFIX-XXX format (any uppercase prefix + digits)
+      const prefixFormat = `# PRD\n## User Stories\n### STORY-42: Valid\n**Acceptance Criteria:**\n- [ ] Test`;
+      expect(parsePrdMarkdown(prefixFormat).userStories).toHaveLength(1);
+
+      // Feature X.Y format
+      const featureFormat = `# PRD\n## User Stories\n### Feature 5.7: Valid\n**Acceptance Criteria:**\n- [ ] Test`;
+      expect(parsePrdMarkdown(featureFormat).userStories).toHaveLength(1);
+      expect(parsePrdMarkdown(featureFormat).userStories[0]!.id).toBe('FEAT-5-7');
+    });
+
+    test('edge cases for each format', () => {
+      const edgeCases = `# PRD: Edge Cases
+
+## User Stories
+
+### US-999: Max 3 digits for US format
+**Acceptance Criteria:**
+- [ ] Works
+
+### VERYLONGPREFIX-123456: Long prefix with many digits
+**Acceptance Criteria:**
+- [ ] Works
+
+### Feature 99.99: Large version numbers
+**Acceptance Criteria:**
+- [ ] Works
+`;
+
+      const result = parsePrdMarkdown(edgeCases);
+      expect(result.userStories).toHaveLength(3);
+
+      expect(result.userStories[0]!.id).toBe('US-999');
+      expect(result.userStories[1]!.id).toBe('VERYLONGPREFIX-123456');
+      expect(result.userStories[2]!.id).toBe('FEAT-99-99');
+    });
+  });
 });

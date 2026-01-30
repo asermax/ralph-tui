@@ -41,8 +41,9 @@ export interface ParseOptions {
 
 /**
  * Pattern to match user story headers: ### US-001: Title or ## US-001: Title or #### US-001: Title
+ * Also supports Feature X.Y format: ### Feature 1.1: Title
  */
-const USER_STORY_HEADER_PATTERN = /^#{2,4}\s+(US-\d{3}|[A-Z]+-\d+):\s*(.+)$/;
+const USER_STORY_HEADER_PATTERN = /^#{2,4}\s+(US-\d{3}|[A-Z]+-\d+|Feature\s+\d+\.\d+):\s*(.+)$/;
 
 /**
  * Pattern to match PRD title from first H1
@@ -78,6 +79,31 @@ const DEPENDS_ON_PATTERN = /\*\*Depends on:\*\*\s*(.+)/;
  * Pattern to match checklist items: - [ ] or - [x]
  */
 const CHECKLIST_ITEM_PATTERN = /^-\s+\[[\sx]\]\s+(.+)$/;
+
+/**
+ * Normalize story ID from various formats to standard format.
+ * Examples:
+ * - "US-001" → "US-001" (unchanged)
+ * - "Feature 1.1" → "FEAT-1-1"
+ * - "EPIC-123" → "EPIC-123" (unchanged)
+ */
+function normalizeStoryId(rawId: string): string {
+  // If it's already in US-XXX or PREFIX-XXX format, keep it
+  if (/^(US-\d{3}|[A-Z]+-\d+)$/.test(rawId)) {
+    return rawId;
+  }
+
+  // Convert "Feature X.Y" to "FEAT-X-Y"
+  const featureMatch = rawId.match(/^Feature\s+(\d+)\.(\d+)$/);
+  if (featureMatch) {
+    const majorVersion = featureMatch[1];
+    const minorVersion = featureMatch[2];
+    return `FEAT-${majorVersion}-${minorVersion}`;
+  }
+
+  // Fallback: return as-is
+  return rawId;
+}
 
 /**
  * Extract the PRD title from the document.
@@ -325,7 +351,7 @@ function findUserStorySections(markdown: string): Array<{ id: string; title: str
 
       // Start new story
       currentStory = {
-        id: match[1] ?? '',
+        id: normalizeStoryId(match[1] ?? ''),
         title: match[2]?.trim() ?? '',
         startIndex: i,
       };
