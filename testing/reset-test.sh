@@ -38,15 +38,15 @@ echo ""
 # 1. Reset the PRD file to initial state (all passes: false)
 echo -e "${YELLOW}[1/5] Resetting test-prd.json...${NC}"
 if [ -f "$SCRIPT_DIR/test-prd.json" ]; then
-    # Use jq if available, otherwise use sed
+    # Use jq if available (preferred), otherwise use perl (portable fallback)
     if command -v jq &> /dev/null; then
         jq '.userStories |= map(.passes = false)' "$SCRIPT_DIR/test-prd.json" > "$SCRIPT_DIR/test-prd.json.tmp"
         mv "$SCRIPT_DIR/test-prd.json.tmp" "$SCRIPT_DIR/test-prd.json"
         echo -e "${GREEN}  PRD reset: all tasks set to passes: false${NC}"
     else
-        # Fallback: use sed (less reliable but works)
-        sed -i 's/"passes": true/"passes": false/g' "$SCRIPT_DIR/test-prd.json"
-        echo -e "${GREEN}  PRD reset (via sed): all tasks set to passes: false${NC}"
+        # Fallback: use perl (portable across macOS and Linux, unlike sed -i)
+        perl -pi -e 's/"passes": true/"passes": false/g' "$SCRIPT_DIR/test-prd.json"
+        echo -e "${GREEN}  PRD reset (via perl): all tasks set to passes: false${NC}"
     fi
 else
     echo -e "${RED}  Warning: test-prd.json not found${NC}"
