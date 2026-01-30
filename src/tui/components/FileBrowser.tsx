@@ -182,7 +182,8 @@ export function FileBrowser({
       setEditingPath(false);
       setEditedPath('');
     } catch (err) {
-      setError(`Cannot access path: ${path}`);
+      const detail = err instanceof Error ? ` (${err.message})` : '';
+      setError(`Cannot access path: ${path}${detail}`);
     }
   }, [expandPath]);
 
