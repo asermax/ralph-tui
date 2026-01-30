@@ -702,6 +702,19 @@ describe('Template Engine - Installation', () => {
 
   describe('installBuiltinTemplates', () => {
     let freshInstallBuiltinTemplates: typeof installBuiltinTemplates;
+    let testDir: string;
+    let originalHome: string | undefined;
+
+    beforeEach(async () => {
+      testDir = await createTestDir();
+      originalHome = process.env.HOME;
+      process.env.HOME = testDir;
+    });
+
+    afterEach(async () => {
+      process.env.HOME = originalHome;
+      await cleanupTestDir(testDir);
+    });
 
     beforeAll(async () => {
       // CRITICAL: Get the REAL template engine module first, bypassing any cached mock
