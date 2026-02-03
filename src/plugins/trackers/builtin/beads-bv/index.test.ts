@@ -42,12 +42,6 @@ describe('BeadsBvTrackerPlugin', () => {
         callback(null);
       },
       constants: { R_OK: 4, W_OK: 2, X_OK: 1, F_OK: 0 },
-      readFileSync: (path: string) => {
-        if (path.endsWith('template.hbs')) {
-          return 'bd close {{taskId}}\nbd sync\n';
-        }
-        return '';
-      },
     }));
 
     mock.module('node:fs/promises', () => ({
@@ -88,7 +82,8 @@ describe('BeadsBvTrackerPlugin', () => {
       const template = plugin.getTemplate();
 
       expect(template).toContain('bd close');
-      expect(template).toContain('bd sync');
+      // Note: beads-bv uses bd (Go version) which doesn't have a sync command
+      // Only beads-rust (br) has sync functionality
     });
 
     test('template does not contain br commands (uses bd, not br)', () => {

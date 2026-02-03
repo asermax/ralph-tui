@@ -19,6 +19,7 @@ import type {
 import {
   DEFAULT_TEMPLATE,
   BEADS_TEMPLATE,
+  BEADS_RUST_TEMPLATE,
   BEADS_BV_TEMPLATE,
   JSON_TEMPLATE,
 } from './builtin.js';
@@ -37,6 +38,8 @@ export function getBuiltinTemplate(trackerType: BuiltinTemplateType): string {
   switch (trackerType) {
     case 'beads':
       return BEADS_TEMPLATE;
+    case 'beads-rust':
+      return BEADS_RUST_TEMPLATE;
     case 'beads-bv':
       return BEADS_BV_TEMPLATE;
     case 'json':
@@ -55,6 +58,9 @@ export function getBuiltinTemplate(trackerType: BuiltinTemplateType): string {
 export function getTemplateTypeFromPlugin(pluginName: string): BuiltinTemplateType {
   if (pluginName.includes('beads-bv')) {
     return 'beads-bv';
+  }
+  if (pluginName.includes('beads-rust')) {
+    return 'beads-rust';
   }
   if (pluginName.includes('beads')) {
     return 'beads';

@@ -227,6 +227,93 @@ When finished (or if already complete), signal completion with:
 `;
 
 /**
+ * Beads-rust (br CLI) tracker template - uses br commands instead of bd.
+ * Context-first structure: PRD → Patterns → Task → Workflow
+ */
+export const BEADS_RUST_TEMPLATE = `{{!-- Full PRD for project context (agent studies this first) --}}
+{{#if prdContent}}
+## PRD: {{prdName}}
+{{#if prdDescription}}
+{{prdDescription}}
+{{/if}}
+
+### Progress: {{prdCompletedCount}}/{{prdTotalCount}} tasks complete
+
+<details>
+<summary>Full PRD Document (click to expand)</summary>
+
+{{prdContent}}
+
+</details>
+{{/if}}
+
+{{!-- Learnings from previous iterations (patterns first) --}}
+{{#if codebasePatterns}}
+## Codebase Patterns (Study These First)
+{{codebasePatterns}}
+{{/if}}
+
+## Bead Details
+- **ID**: {{taskId}}
+- **Title**: {{taskTitle}}
+{{#if epicId}}
+- **Epic**: {{epicId}}{{#if epicTitle}} - {{epicTitle}}{{/if}}
+{{/if}}
+{{#if taskDescription}}
+- **Description**: {{taskDescription}}
+{{/if}}
+
+{{#if acceptanceCriteria}}
+## Acceptance Criteria
+{{acceptanceCriteria}}
+{{/if}}
+
+{{#if dependsOn}}
+**Prerequisites**: {{dependsOn}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
+{{/if}}
+
+## Workflow
+1. Study the PRD context above to understand the bigger picture (if available)
+2. Study \`.ralph-tui/progress.md\` to understand overall status, implementation progress, and learnings including codebase patterns and gotchas
+3. Implement the requirements (stay on current branch)
+4. Run your project's quality checks (typecheck, lint, etc.)
+{{#if config.autoCommit}}
+5. Do NOT create git commits. Changes will be committed automatically by the engine after task completion.
+{{else}}
+5. Do NOT create git commits. Leave all changes uncommitted for manual review.
+{{/if}}
+6. Close the bead: \`br close {{taskId}} --reason "Brief description"\`
+7. Flush tracker state to JSONL (no git side effects): \`br sync --flush-only\`
+8. Document learnings (see below)
+9. Signal completion
+
+## Before Completing
+APPEND to \`.ralph-tui/progress.md\`:
+\`\`\`
+## [Date] - {{taskId}}
+- What was implemented
+- Files changed
+- **Learnings:**
+  - Patterns discovered
+  - Gotchas encountered
+---
+\`\`\`
+
+If you discovered a **reusable pattern**, also add it to the \`## Codebase Patterns\` section at the TOP of progress.md.
+
+## Stop Condition
+**IMPORTANT**: If the work is already complete (implemented in a previous iteration or already exists), verify it works correctly and signal completion immediately.
+
+When finished (or if already complete), signal completion with:
+<promise>COMPLETE</promise>
+`;
+
+/**
  * JSON (prd.json) tracker template - structured for PRD user stories.
  * Context-first structure: PRD → Patterns → Task → Workflow
  */
