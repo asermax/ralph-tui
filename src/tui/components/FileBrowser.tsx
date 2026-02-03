@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useKeyboard } from '@opentui/react';
 import type { ScrollBoxRenderable } from '@opentui/core';
 import { homedir } from 'node:os';
-import { dirname, resolve, sep } from 'node:path';
+import { dirname, resolve, sep, isAbsolute } from 'node:path';
 import { colors } from '../theme.js';
 import { listDirectory, isDirectory, pathExists, type DirectoryEntry } from '../../utils/files.js';
 
@@ -164,14 +164,24 @@ export function FileBrowser({
     setCurrentPath(homedir());
   }, []);
 
-  // Expand ~ to home directory and resolve path
+  // Expand ~ to home directory and resolve path relative to current browsing directory
   const expandPath = useCallback((path: string): string => {
     let expanded = path.trim();
+
+    // Handle tilde expansion to home directory
     if (expanded.startsWith('~')) {
       expanded = homedir() + expanded.slice(1);
+      return resolve(expanded);
     }
-    return resolve(expanded);
-  }, []);
+
+    // Absolute paths resolve directly
+    if (isAbsolute(expanded)) {
+      return resolve(expanded);
+    }
+
+    // Relative paths (including ./ and ../) resolve against current browsing directory
+    return resolve(currentPath, expanded);
+  }, [currentPath]);
 
   // Navigate to a typed path
   const navigateToPath = useCallback(async (path: string) => {
