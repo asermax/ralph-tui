@@ -40,6 +40,15 @@ export interface AgentPreflightResult {
 
   /** How long the preflight check took in milliseconds */
   durationMs?: number;
+
+  /** Exit code from the preflight execution (for diagnostics) */
+  exitCode?: number;
+
+  /** Stderr output from the preflight execution (for diagnostics) */
+  stderr?: string;
+
+  /** Stdout output from the preflight execution (for diagnostics) */
+  stdout?: string;
 }
 
 /**
@@ -326,6 +335,7 @@ export interface AgentPluginMeta {
    * If undefined, the agent does not support skill installation.
    */
   skillsPaths?: AgentSkillsPaths;
+
 }
 
 /**
