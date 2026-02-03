@@ -4,7 +4,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { filterTasksByRange, parseRunArgs, type TaskRangeFilter } from './run.js';
+import { filterTasksByRange, parseRunArgs, printRunHelp, type TaskRangeFilter } from './run.js';
 import type { TrackerTask } from '../plugins/trackers/types.js';
 
 /**
@@ -316,5 +316,32 @@ describe('parseRunArgs', () => {
       expect(result.directMerge).toBe(true);
       expect(result.headless).toBe(true);
     });
+  });
+});
+
+describe('printRunHelp', () => {
+  test('prints help without throwing', () => {
+    // Capture console output
+    const originalLog = console.log;
+    const output: string[] = [];
+    console.log = (...args: unknown[]) => {
+      output.push(args.map(String).join(' '));
+    };
+
+    try {
+      // Should not throw
+      printRunHelp();
+
+      // Should have printed something
+      expect(output.length).toBeGreaterThan(0);
+
+      // Should contain usage info
+      const fullOutput = output.join('\n');
+      expect(fullOutput).toContain('ralph-tui run');
+      expect(fullOutput).toContain('--task-range');
+      expect(fullOutput).toContain('--parallel');
+    } finally {
+      console.log = originalLog;
+    }
   });
 });
