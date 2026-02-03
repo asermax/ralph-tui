@@ -135,7 +135,7 @@ function getGitInfo(cwd: string): {
  * Task range filter for --task-range flag.
  * Allows filtering tasks by 1-indexed position (e.g., 1-5, 3-, -10).
  */
-interface TaskRangeFilter {
+export interface TaskRangeFilter {
   /** Starting task number (1-indexed, inclusive). Undefined means from beginning. */
   start?: number;
   /** Ending task number (1-indexed, inclusive). Undefined means to the end. */
@@ -514,7 +514,7 @@ function resolveParallelMode(
  * @param taskRange - Range filter (start/end are 1-indexed, inclusive)
  * @returns Filtered tasks and a message describing the filter applied
  */
-function filterTasksByRange(
+export function filterTasksByRange(
   tasks: TrackerTask[],
   taskRange: TaskRangeFilter
 ): { filteredTasks: TrackerTask[]; message: string } {
