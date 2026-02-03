@@ -118,3 +118,57 @@ mode = "never"    # Disable auto-detection
 # Override config to run parallel when you choose
 ralph-tui run --parallel 3
 ```
+
+## Smart Parallelism Heuristics
+
+Ralph TUI automatically adjusts the recommended worker count based on task characteristics. This helps prevent merge conflicts when tasks are likely to touch overlapping files.
+
+### How It Works
+
+The heuristic analyzes:
+
+1. **Task titles and labels** — Looking for keywords like "test", "refactor", etc.
+2. **File overlap** — Using the `affects` metadata field if available
+
+### Heuristic Rules
+
+| Pattern | Effect | Reasoning |
+|---------|--------|-----------|
+| `>50%` test tasks | Full parallelism | Test files rarely conflict with each other |
+| `>50%` refactor tasks | Reduce to 2 workers | Refactoring often touches many files |
+| High file overlap | Reduce parallelism | Overlapping files cause merge conflicts |
+
+### Example
+
+If your task list contains:
+
+```
+1. Write unit tests for UserService
+2. Add tests for AuthController
+3. Test coverage for OrderProcessor
+4. Add integration tests for PaymentService
+```
+
+The heuristic detects `>50%` test-related tasks and recommends **full parallelism** since test files typically don't conflict.
+
+Conversely, if your tasks are:
+
+```
+1. Refactor database layer
+2. Refactor API endpoints
+3. Refactor auth middleware
+```
+
+The heuristic reduces parallelism to **2 workers** to minimize merge conflicts.
+
+### Overriding Heuristics
+
+You can always override the recommendation with explicit flags:
+
+```bash
+# Force specific worker count regardless of heuristics
+ralph-tui run --parallel 6
+
+# Or disable parallel entirely
+ralph-tui run --serial
+```

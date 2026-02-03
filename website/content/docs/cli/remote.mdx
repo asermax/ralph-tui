@@ -201,6 +201,102 @@ token = "YWJjZGVmMDEyMzQ1Njc4OTBhYmNkZWYwMTIzNDU2Nzg5"
 addedAt = "2026-01-18T10:00:00.000Z"
 ```
 
+## Remote Parallel Orchestration
+
+When a ralph-tui server is running with `--listen`, remote clients can start, control, and monitor parallel execution through WebSocket messages.
+
+### How It Works
+
+1. **Server setup**: Start ralph-tui with parallel configuration and `--listen`:
+   ```bash
+   ralph-tui run --prd ./prd.json --listen
+   ```
+
+2. **Client control**: Remote clients can send orchestration commands via WebSocket
+
+3. **Event streaming**: The server streams parallel execution events (worker started, task completed, merge status) to subscribed clients
+
+### Orchestration Commands
+
+Remote clients can use these WebSocket message types:
+
+| Command | Description |
+|---------|-------------|
+| `orchestrate:start` | Start parallel execution with specified options |
+| `orchestrate:pause` | Pause all workers |
+| `orchestrate:resume` | Resume paused workers |
+| `orchestrate:stop` | Stop execution and clean up worktrees |
+| `orchestrate:get_state` | Query current orchestration status |
+
+### Start Options
+
+When starting orchestration, you can specify:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `maxWorkers` | number | Maximum concurrent workers (default: 3) |
+| `directMerge` | boolean | Merge to current branch vs session branch |
+| `maxIterations` | number | Max iterations per worker |
+
+### Example: Programmatic Control
+
+```typescript
+// Connect to remote ralph-tui server
+const client = new RemoteClient('ws://server:7890', token);
+await client.connect();
+
+// Start parallel execution
+const result = await client.startOrchestration({
+  maxWorkers: 4,
+  directMerge: false,
+});
+
+if (result.success) {
+  console.log(`Started orchestration: ${result.orchestrationId}`);
+  console.log(`Total tasks: ${result.totalTasks}`);
+
+  // Subscribe to events
+  client.on('parallel_event', (event) => {
+    console.log(`Event: ${event.event.type}`);
+  });
+
+  // Later: pause if needed
+  await client.pauseOrchestration(result.orchestrationId);
+
+  // Resume
+  await client.resumeOrchestration(result.orchestrationId);
+
+  // Or stop
+  await client.stopOrchestration(result.orchestrationId);
+}
+```
+
+### State Response
+
+The `orchestrate:get_state` command returns:
+
+```typescript
+{
+  orchestrationId: string;
+  status: 'running' | 'paused' | 'completed' | 'failed';
+  startedAt: string;        // ISO 8601 timestamp
+  totalTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  workerStates: {
+    [workerId: string]: {
+      status: 'idle' | 'running' | 'completed' | 'failed';
+      currentTaskId?: string;
+      completedTaskIds: string[];
+    };
+  };
+}
+```
+
+<Callout type="info">
+  Remote orchestration respects the `--task-range` filter if configured on the server. Only filtered tasks will be distributed to workers.
+</Callout>
+
 ## Security
 
 <Callout type="warning">

@@ -1,9 +1,13 @@
 /**
  * ABOUTME: Tests for clipboard utility functions.
  * Tests cross-platform clipboard write functionality with mocked child processes.
+ *
+ * The mock is configured in beforeAll (not at module scope) to avoid cross-test
+ * pollution. The module under test is dynamically imported only once the mock
+ * is in place, ensuring isolation.
  */
 
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, beforeAll, afterEach, afterAll } from 'bun:test';
 import { EventEmitter } from 'node:events';
 
 // Track what spawn was called with
@@ -78,19 +82,29 @@ function mockSpawn(command: string, args: string[]) {
   return createMockProcess(behavior);
 }
 
-// Mock the modules before importing clipboard
-mock.module('node:child_process', () => ({
-  spawn: mockSpawn,
-}));
-
-mock.module('node:os', () => ({
-  platform: () => mockPlatform,
-}));
-
-// Import after mocking
-const { writeToClipboard } = await import('../../src/utils/clipboard.js');
+// Declare the function type for the import
+let writeToClipboard: typeof import('../../src/utils/clipboard.js').writeToClipboard;
 
 describe('clipboard utility', () => {
+  beforeAll(async () => {
+    // Ensure node:child_process and node:os modules are mocked
+    mock.module('node:child_process', () => ({
+      spawn: mockSpawn,
+    }));
+
+    mock.module('node:os', () => ({
+      platform: () => mockPlatform,
+    }));
+
+    // Import clipboard module after mocks are registered
+    const module = await import('../../src/utils/clipboard.js');
+    writeToClipboard = module.writeToClipboard;
+  });
+
+  afterAll(() => {
+    mock.restore();
+  });
+
   beforeEach(() => {
     spawnCalls = [];
     mockPlatform = 'darwin';

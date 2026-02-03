@@ -40,6 +40,7 @@ Running `ralph-tui` without any command also starts the TUI interface, allowing 
 | `--delay <ms>` | Delay between iterations in milliseconds |
 | `--serial`, `--sequential` | Force sequential execution (disable parallel) |
 | `--parallel [N]` | Force parallel execution, optionally with N workers |
+| `--task-range <range>` | Filter tasks by index (e.g., `1-5`, `3-`, `-10`) |
 
 ### Output & State
 
@@ -275,6 +276,42 @@ When parallel mode is active, the TUI shows additional views:
 - Press `Enter` on a worker to see its detail output
 
 See the [Parallel Execution guide](/docs/parallel/overview) for full documentation.
+
+## Task Range Filtering
+
+The `--task-range` flag lets you filter tasks by their position in the task list. Task indices are **1-indexed** for user friendliness.
+
+### Range Formats
+
+| Format | Meaning |
+|--------|---------|
+| `1-5` | Tasks 1 through 5 (inclusive) |
+| `3-` | Tasks 3 to the end |
+| `-10` | Tasks 1 through 10 |
+| `5` | Only task 5 |
+
+### Examples
+
+```bash
+# Run only the first 5 tasks
+ralph-tui run --prd ./prd.json --task-range 1-5
+
+# Skip the first 2 tasks, run the rest
+ralph-tui run --prd ./prd.json --task-range 3-
+
+# Run tasks 1-10 only (useful for large PRDs)
+ralph-tui run --prd ./prd.json --task-range -10
+
+# Run just task 3
+ralph-tui run --prd ./prd.json --task-range 3
+
+# Combine with parallel for targeted parallel execution
+ralph-tui run --prd ./prd.json --task-range 5-15 --parallel 4
+```
+
+<Callout type="tip">
+  Task range filtering works with both sequential and parallel execution. When combined with `--parallel`, only the filtered tasks are distributed across workers.
+</Callout>
 
 ## Related Commands
 
