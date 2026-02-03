@@ -105,7 +105,7 @@ function createReadline(): readline.Interface {
 }
 
 /**
- * Prompt for a text input using raw mode to filter escape codes in real-time
+ * Prompt for a text input
  */
 export async function promptText(
   prompt: string,
@@ -116,6 +116,7 @@ export async function promptText(
     help?: string;
   } = {}
 ): Promise<string> {
+  const rl = createReadline();
   const defaultStr = options.default ? ` ${colors.dim}(${options.default})${colors.reset}` : '';
 
   return new Promise((resolve) => {
@@ -123,99 +124,32 @@ export async function promptText(
       console.log(formatHelp(options.help));
     }
 
-    process.stdout.write(formatPrompt(prompt, options.required ?? false) + defaultStr + ' ');
+    rl.question(formatPrompt(prompt, options.required ?? false) + defaultStr + ' ', (answer) => {
+      rl.close();
 
-    // Enable raw mode to read input character by character
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(true);
-    }
-    process.stdin.resume();
-    process.stdin.setEncoding('utf8');
+      // Strip any escape codes that slipped through (fallback for mouse tracking)
+      const cleanedAnswer = stripEscapeCodes(answer);
+      const value = cleanedAnswer.trim() || options.default || '';
 
-    let inputBuffer = '';
-    let cursorPos = 0;
-
-    const cleanup = () => {
-      process.stdin.removeListener('data', onData);
-      process.stdin.pause();
-      if (process.stdin.isTTY) {
-        process.stdin.setRawMode(false);
-      }
-    };
-
-    const onData = (key: string) => {
-      // Filter out mouse tracking codes in real-time
-      // Pattern: sequences like 35;106;28M (requires semicolon to avoid false positives like "10m")
-      if (/^\d+;\d+(?:;\d+)*[Mm]$/.test(key)) {
-        return; // Ignore mouse tracking codes completely
-      }
-
-      // Handle Enter key
-      if (key === '\r' || key === '\n') {
-        process.stdout.write('\n');
-        cleanup();
-
-        const value = inputBuffer.trim() || options.default || '';
-
-        // Validate pattern if provided
-        if (options.pattern && value) {
-          try {
-            const regex = new RegExp(options.pattern);
-            if (!regex.test(value)) {
-              console.log(`${colors.yellow}Invalid format. Please try again.${colors.reset}`);
-              resolve(promptText(prompt, options));
-              return;
-            }
-          } catch {
-            console.log(`${colors.yellow}Invalid pattern configuration. Contact support.${colors.reset}`);
-            resolve(promptText(prompt, options));
-            return;
-          }
-        }
-
-        // Check required
-        if (options.required && !value) {
-          console.log(`${colors.yellow}This field is required.${colors.reset}`);
+      // Validate pattern if provided
+      if (options.pattern && value) {
+        const regex = new RegExp(options.pattern);
+        if (!regex.test(value)) {
+          console.log(`${colors.yellow}Invalid format. Please try again.${colors.reset}`);
           resolve(promptText(prompt, options));
           return;
         }
+      }
 
-        resolve(value);
+      // Check required
+      if (options.required && !value) {
+        console.log(`${colors.yellow}This field is required.${colors.reset}`);
+        resolve(promptText(prompt, options));
         return;
       }
 
-      // Handle Ctrl+C
-      if (key === '\u0003') {
-        cleanup();
-        process.exit(0);
-      }
-
-      // Handle backspace
-      if (key === '\u007f' || key === '\b') {
-        if (inputBuffer.length > 0 && cursorPos > 0) {
-          inputBuffer = inputBuffer.slice(0, cursorPos - 1) + inputBuffer.slice(cursorPos);
-          cursorPos--;
-          // Clear line and redraw
-          process.stdout.write('\r' + formatPrompt(prompt, options.required ?? false) + defaultStr + ' ' + inputBuffer + ' ');
-          process.stdout.write('\r' + formatPrompt(prompt, options.required ?? false) + defaultStr + ' ' + inputBuffer.slice(0, cursorPos));
-        }
-        return;
-      }
-
-      // Ignore other control characters and escape sequences
-      if (key.charCodeAt(0) < 32 || key.startsWith('\x1b')) {
-        return;
-      }
-
-      // Add regular character
-      inputBuffer = inputBuffer.slice(0, cursorPos) + key + inputBuffer.slice(cursorPos);
-      cursorPos += key.length;
-
-      // Redraw line
-      process.stdout.write('\r' + formatPrompt(prompt, options.required ?? false) + defaultStr + ' ' + inputBuffer);
-    };
-
-    process.stdin.on('data', onData);
+      resolve(value);
+    });
   });
 }
 
