@@ -107,8 +107,8 @@ export function parseCursorOutputToEvents(data: string): AgentDisplayEvent[] {
 }
 
 /**
- * Cursor Agent CLI plugin implementation.
- * Uses the `agent` CLI to execute AI coding tasks.
+ * Cursor CLI agent plugin implementation.
+ * Uses the `cursor` CLI to execute AI coding tasks.
  */
 export class CursorAgentPlugin extends BaseAgentPlugin {
   readonly meta: AgentPluginMeta = {
