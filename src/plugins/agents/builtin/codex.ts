@@ -307,13 +307,20 @@ export class CodexAgentPlugin extends BaseAgentPlugin {
     _files?: AgentFileContext[],
     _options?: AgentExecuteOptions
   ): string[] {
+    const preArgs: string[] = [];
     const args: string[] = [];
+
+    // --full-auto forces workspace-write; use approval flag when sandbox is customized.
+    // -a is a global flag (must come before exec), --full-auto is a subcommand flag (after exec).
+    if (this.fullAuto && this.sandbox !== 'workspace-write') {
+      preArgs.push('-a', 'on-request');
+    }
 
     // Use exec subcommand for non-interactive mode
     args.push('exec');
 
-    // Full-auto mode
-    if (this.fullAuto) {
+    // --full-auto is a subcommand flag, must come after exec
+    if (this.fullAuto && this.sandbox === 'workspace-write') {
       args.push('--full-auto');
     }
 
@@ -332,7 +339,7 @@ export class CodexAgentPlugin extends BaseAgentPlugin {
     // Use '-' to tell Codex to read prompt from stdin (per CLI reference docs)
     args.push('-');
 
-    return args;
+    return [...preArgs, ...args];
   }
 
   /**

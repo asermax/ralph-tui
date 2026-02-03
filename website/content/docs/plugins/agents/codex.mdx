@@ -130,6 +130,10 @@ When `fullAuto` is enabled (default), Codex will auto-approve all actions withou
 fullAuto = true
 ```
 
+<Callout type="info">
+**Codex Custom Sandbox Behavior**: When `fullAuto` is enabled with a custom sandbox mode (`read-only` or `danger-full-access`), Ralph TUI uses Codex's `-a on-request` flag instead of `--full-auto`. This is because Codex's `--full-auto` flag forces `workspace-write` and would override your custom sandbox setting. This behavior is specific to the Codex agent.
+</Callout>
+
 ## Subagent Tracing
 
 Codex emits structured JSONL via `--json` (always enabled). Ralph TUI parses this to display:
@@ -163,11 +167,21 @@ When Ralph TUI executes a task with Codex:
 Ralph TUI builds these arguments:
 
 ```bash
+# Default: fullAuto with workspace-write sandbox
 codex exec \
-  --full-auto \                    # When fullAuto enabled
+  --full-auto \                    # When fullAuto enabled with default sandbox
   --json \                         # Always used for structured output
   --model gpt-4 \                  # If model specified
-  --sandbox workspace-write \      # Sandbox mode
+  --sandbox workspace-write \      # Default sandbox mode
+  < prompt.txt                     # Prompt via stdin
+
+# Custom sandbox: fullAuto with read-only or danger-full-access
+codex \
+  -a on-request \                  # Global approval flag (before exec)
+  exec \
+  --json \                         # Always used for structured output
+  --model gpt-4 \                  # If model specified
+  --sandbox danger-full-access \   # Custom sandbox is honored
   < prompt.txt                     # Prompt via stdin
 ```
 

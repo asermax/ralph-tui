@@ -191,6 +191,30 @@ describe('CodexAgentPlugin buildArgs', () => {
     expect(args).toContain('--full-auto');
   });
 
+  test('uses approval flag when full-auto with custom sandbox', async () => {
+    await plugin.initialize({ sandbox: 'danger-full-access' });
+    const args = (plugin as TestableCodexPlugin).testBuildArgs('test prompt');
+    expect(args).not.toContain('--full-auto');
+    expect(args).toContain('-a');
+    expect(args).toContain('on-request');
+    expect(args.indexOf('-a')).toBeLessThan(args.indexOf('exec'));
+    // Verify sandbox flag is still correctly included
+    expect(args).toContain('--sandbox');
+    expect(args).toContain('danger-full-access');
+  });
+
+  test('uses approval flag when full-auto with read-only sandbox', async () => {
+    await plugin.initialize({ sandbox: 'read-only' });
+    const args = (plugin as TestableCodexPlugin).testBuildArgs('test prompt');
+    expect(args).not.toContain('--full-auto');
+    expect(args).toContain('-a');
+    expect(args).toContain('on-request');
+    expect(args.indexOf('-a')).toBeLessThan(args.indexOf('exec'));
+    // Verify sandbox flag is still correctly included
+    expect(args).toContain('--sandbox');
+    expect(args).toContain('read-only');
+  });
+
   test('omits --full-auto when disabled', async () => {
     await plugin.initialize({ fullAuto: false });
     const args = (plugin as TestableCodexPlugin).testBuildArgs('test prompt');
