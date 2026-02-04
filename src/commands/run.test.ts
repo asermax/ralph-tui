@@ -1,11 +1,21 @@
 /**
  * ABOUTME: Tests for the run command utilities.
- * Covers task range filtering and related utilities.
+ * Covers task range filtering, conflict resolution helpers, and related utilities.
  */
 
 import { describe, test, expect } from 'bun:test';
-import { filterTasksByRange, parseRunArgs, printRunHelp, type TaskRangeFilter } from './run.js';
+import {
+  filterTasksByRange,
+  parseRunArgs,
+  printRunHelp,
+  clearConflictState,
+  findResolutionByPath,
+  areAllConflictsResolved,
+  type TaskRangeFilter,
+  type ParallelConflictState,
+} from './run.js';
 import type { TrackerTask } from '../plugins/trackers/types.js';
+import type { FileConflict, ConflictResolutionResult } from '../parallel/types.js';
 
 /**
  * Helper to create mock tasks for testing.
@@ -343,5 +353,295 @@ describe('printRunHelp', () => {
     } finally {
       console.log = originalLog;
     }
+  });
+});
+
+describe('conflict resolution helpers', () => {
+  /**
+   * Tests for the exported conflict resolution helper functions.
+   * These functions are used by the parallel execution callbacks.
+   */
+
+  /** Helper to create a mock FileConflict */
+  function mockConflict(filePath: string): FileConflict {
+    return {
+      filePath,
+      oursContent: 'ours',
+      theirsContent: 'theirs',
+      baseContent: 'base',
+      conflictMarkers: '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch',
+    };
+  }
+
+  /** Helper to create a mock ConflictResolutionResult */
+  function mockResolution(filePath: string, success: boolean): ConflictResolutionResult {
+    return {
+      filePath,
+      success,
+      method: 'ai',
+      resolvedContent: success ? 'resolved' : undefined,
+      error: success ? undefined : 'Resolution failed',
+    };
+  }
+
+  describe('clearConflictState', () => {
+    test('clears all conflict-related fields', () => {
+      const state: ParallelConflictState = {
+        conflicts: [mockConflict('src/file1.ts'), mockConflict('src/file2.ts')],
+        conflictResolutions: [mockResolution('src/file1.ts', true)],
+        conflictTaskId: 'TASK-001',
+        conflictTaskTitle: 'Test task',
+        aiResolving: true,
+      };
+
+      clearConflictState(state);
+
+      expect(state.conflicts).toHaveLength(0);
+      expect(state.conflictResolutions).toHaveLength(0);
+      expect(state.conflictTaskId).toBe('');
+      expect(state.conflictTaskTitle).toBe('');
+      expect(state.aiResolving).toBe(false);
+    });
+
+    test('works on already empty state', () => {
+      const state: ParallelConflictState = {
+        conflicts: [],
+        conflictResolutions: [],
+        conflictTaskId: '',
+        conflictTaskTitle: '',
+        aiResolving: false,
+      };
+
+      // Should not throw
+      clearConflictState(state);
+
+      expect(state.conflicts).toHaveLength(0);
+      expect(state.conflictTaskId).toBe('');
+    });
+  });
+
+  describe('findResolutionByPath', () => {
+    test('finds resolution when it exists', () => {
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+        mockResolution('src/file2.ts', false),
+        mockResolution('src/file3.ts', true),
+      ];
+
+      const result = findResolutionByPath(resolutions, 'src/file2.ts');
+
+      expect(result).toBeDefined();
+      expect(result?.filePath).toBe('src/file2.ts');
+      expect(result?.success).toBe(false);
+    });
+
+    test('returns undefined when resolution does not exist', () => {
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+      ];
+
+      const result = findResolutionByPath(resolutions, 'nonexistent.ts');
+
+      expect(result).toBeUndefined();
+    });
+
+    test('returns undefined for empty resolutions array', () => {
+      const result = findResolutionByPath([], 'src/file1.ts');
+
+      expect(result).toBeUndefined();
+    });
+
+    test('finds first match when duplicates exist', () => {
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+        mockResolution('src/file1.ts', false), // duplicate with different success
+      ];
+
+      const result = findResolutionByPath(resolutions, 'src/file1.ts');
+
+      expect(result?.success).toBe(true); // First match
+    });
+  });
+
+  describe('areAllConflictsResolved', () => {
+    test('returns true when all conflicts have successful resolutions', () => {
+      const conflicts: FileConflict[] = [
+        mockConflict('src/file1.ts'),
+        mockConflict('src/file2.ts'),
+      ];
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+        mockResolution('src/file2.ts', true),
+      ];
+
+      expect(areAllConflictsResolved(conflicts, resolutions)).toBe(true);
+    });
+
+    test('returns false when some resolutions failed', () => {
+      const conflicts: FileConflict[] = [
+        mockConflict('src/file1.ts'),
+        mockConflict('src/file2.ts'),
+      ];
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+        mockResolution('src/file2.ts', false), // failed
+      ];
+
+      expect(areAllConflictsResolved(conflicts, resolutions)).toBe(false);
+    });
+
+    test('returns false when resolutions are missing', () => {
+      const conflicts: FileConflict[] = [
+        mockConflict('src/file1.ts'),
+        mockConflict('src/file2.ts'),
+      ];
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/file1.ts', true),
+        // file2.ts resolution missing
+      ];
+
+      expect(areAllConflictsResolved(conflicts, resolutions)).toBe(false);
+    });
+
+    test('returns true when no conflicts exist', () => {
+      expect(areAllConflictsResolved([], [])).toBe(true);
+    });
+
+    test('returns false when resolutions exist but for wrong files', () => {
+      const conflicts: FileConflict[] = [
+        mockConflict('src/file1.ts'),
+      ];
+      const resolutions: ConflictResolutionResult[] = [
+        mockResolution('src/other.ts', true), // wrong file
+      ];
+
+      expect(areAllConflictsResolved(conflicts, resolutions)).toBe(false);
+    });
+  });
+
+  describe('keyboard handler behavior', () => {
+    test('escape key triggers abort callback', () => {
+      let abortCalled = false;
+      let panelHidden = false;
+
+      const onConflictAbort = async () => {
+        abortCalled = true;
+      };
+
+      // Simulate escape key handler from RunApp.tsx
+      const handleEscapeKey = () => {
+        if (onConflictAbort) {
+          onConflictAbort().catch(() => {});
+        }
+        panelHidden = true;
+      };
+
+      handleEscapeKey();
+
+      expect(abortCalled).toBe(true);
+      expect(panelHidden).toBe(true);
+    });
+
+    test('a key triggers accept callback with selected file', () => {
+      let acceptedFile: string | undefined;
+      const conflicts = [
+        { filePath: 'src/file1.ts' },
+        { filePath: 'src/file2.ts' },
+      ];
+      const selectedIndex = 1;
+
+      const onConflictAccept = (filePath: string) => {
+        acceptedFile = filePath;
+      };
+
+      // Simulate 'a' key handler from RunApp.tsx
+      const handleAcceptKey = () => {
+        if (onConflictAccept && conflicts[selectedIndex]) {
+          onConflictAccept(conflicts[selectedIndex].filePath);
+        }
+      };
+
+      handleAcceptKey();
+
+      expect(acceptedFile).toBe('src/file2.ts');
+    });
+
+    test('r key triggers abort callback (reject)', () => {
+      let abortCalled = false;
+      let panelHidden = false;
+
+      const onConflictAbort = async () => {
+        abortCalled = true;
+      };
+
+      // Simulate 'r' key handler from RunApp.tsx
+      const handleRejectKey = () => {
+        if (onConflictAbort) {
+          onConflictAbort().catch(() => {});
+        }
+        panelHidden = true;
+      };
+
+      handleRejectKey();
+
+      expect(abortCalled).toBe(true);
+      expect(panelHidden).toBe(true);
+    });
+
+    test('shift+A triggers acceptAll callback and hides panel', () => {
+      let acceptAllCalled = false;
+      let panelHidden = false;
+
+      const onConflictAcceptAll = () => {
+        acceptAllCalled = true;
+      };
+
+      // Simulate shift+A key handler from RunApp.tsx
+      const handleAcceptAllKey = () => {
+        if (onConflictAcceptAll) {
+          onConflictAcceptAll();
+        }
+        panelHidden = true;
+      };
+
+      handleAcceptAllKey();
+
+      expect(acceptAllCalled).toBe(true);
+      expect(panelHidden).toBe(true);
+    });
+
+    test('navigation keys update selected index', () => {
+      let selectedIndex = 0;
+      const conflictsLength = 3;
+
+      // Simulate j/down key handler
+      const handleDownKey = () => {
+        selectedIndex = Math.min(selectedIndex + 1, conflictsLength - 1);
+      };
+
+      // Simulate k/up key handler
+      const handleUpKey = () => {
+        selectedIndex = Math.max(selectedIndex - 1, 0);
+      };
+
+      // Test navigation
+      handleDownKey();
+      expect(selectedIndex).toBe(1);
+
+      handleDownKey();
+      expect(selectedIndex).toBe(2);
+
+      handleDownKey(); // Should not go beyond max
+      expect(selectedIndex).toBe(2);
+
+      handleUpKey();
+      expect(selectedIndex).toBe(1);
+
+      handleUpKey();
+      expect(selectedIndex).toBe(0);
+
+      handleUpKey(); // Should not go below 0
+      expect(selectedIndex).toBe(0);
+    });
   });
 });

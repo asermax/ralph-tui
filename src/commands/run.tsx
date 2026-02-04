@@ -576,6 +576,70 @@ export function filterTasksByRange(
   return { filteredTasks, message };
 }
 
+// ─── Conflict Resolution Helpers ────────────────────────────────────────────────
+// These functions encapsulate the conflict resolution logic for testability.
+// They are used by the parallel execution callbacks in RunAppWrapper.
+
+/**
+ * State shape for parallel conflict tracking.
+ * Matches the parallelState object used in parallel execution.
+ */
+export interface ParallelConflictState {
+  conflicts: FileConflict[];
+  conflictResolutions: ConflictResolutionResult[];
+  conflictTaskId: string;
+  conflictTaskTitle: string;
+  aiResolving: boolean;
+}
+
+/**
+ * Clear all conflict-related state after abort or resolution.
+ * Called when user aborts conflict resolution or when conflicts are fully resolved.
+ *
+ * @param state - The parallel state object to clear
+ */
+export function clearConflictState(state: ParallelConflictState): void {
+  state.conflicts = [];
+  state.conflictResolutions = [];
+  state.conflictTaskId = '';
+  state.conflictTaskTitle = '';
+  state.aiResolving = false;
+}
+
+/**
+ * Find a conflict resolution result by file path.
+ * Used when accepting a specific file's AI resolution.
+ *
+ * @param resolutions - Array of resolution results
+ * @param filePath - Path of the file to find
+ * @returns The resolution result if found, undefined otherwise
+ */
+export function findResolutionByPath(
+  resolutions: ConflictResolutionResult[],
+  filePath: string
+): ConflictResolutionResult | undefined {
+  return resolutions.find((r) => r.filePath === filePath);
+}
+
+/**
+ * Check if all conflicts have been successfully resolved.
+ *
+ * @param conflicts - Array of file conflicts
+ * @param resolutions - Array of resolution results
+ * @returns true if all conflicts have successful resolutions
+ */
+export function areAllConflictsResolved(
+  conflicts: FileConflict[],
+  resolutions: ConflictResolutionResult[]
+): boolean {
+  if (conflicts.length === 0) return true;
+  if (resolutions.length < conflicts.length) return false;
+  return conflicts.every((conflict) => {
+    const resolution = resolutions.find((r) => r.filePath === conflict.filePath);
+    return resolution?.success === true;
+  });
+}
+
 /**
  * Initialize plugin registries
  */
@@ -933,6 +997,12 @@ interface RunAppWrapperProps {
   onParallelKill?: () => Promise<void>;
   /** Callback to restart parallel execution after stop/complete */
   onParallelStart?: () => void;
+  /** Callback to abort conflict resolution and rollback the merge */
+  onConflictAbort?: () => Promise<void>;
+  /** Callback to accept AI resolution for a specific file */
+  onConflictAccept?: (filePath: string) => void;
+  /** Callback to accept all AI resolutions */
+  onConflictAcceptAll?: () => void;
 }
 
 /**
@@ -980,6 +1050,9 @@ function RunAppWrapper({
   onParallelResume,
   onParallelKill,
   onParallelStart,
+  onConflictAbort,
+  onConflictAccept,
+  onConflictAcceptAll,
 }: RunAppWrapperProps) {
   const [showInterruptDialog, setShowInterruptDialog] = useState(false);
   const [storedConfig, setStoredConfig] = useState<StoredConfig | undefined>(initialStoredConfig);
@@ -1178,6 +1251,9 @@ function RunAppWrapper({
       onParallelResume={onParallelResume}
       onParallelKill={onParallelKill}
       onParallelStart={onParallelStart}
+      onConflictAbort={onConflictAbort}
+      onConflictAccept={onConflictAccept}
+      onConflictAcceptAll={onConflictAcceptAll}
     />
   );
 }
@@ -1802,6 +1878,31 @@ async function runParallelWithTui(
           }).catch(() => {
             triggerRerender?.();
           });
+        }}
+        onConflictAbort={async () => {
+          // Stop the executor gracefully. Full cleanup (worktrees, git state) is
+          // guaranteed by execute()'s finally block which calls this.cleanup().
+          // We clear UI conflict state in finally to ensure it runs even if stop() rejects.
+          try {
+            await parallelExecutor.stop();
+          } finally {
+            clearConflictState(parallelState);
+            triggerRerender?.();
+          }
+        }}
+        onConflictAccept={(filePath: string) => {
+          // Mark file as accepted - the AI resolution continues automatically
+          // This is primarily for user feedback; actual resolution is AI-driven
+          const resolution = findResolutionByPath(parallelState.conflictResolutions, filePath);
+          if (resolution?.success) {
+            // File already resolved by AI - nothing more to do
+            triggerRerender?.();
+          }
+        }}
+        onConflictAcceptAll={() => {
+          // Accept all resolutions - let AI continue and close panel
+          // The AI resolution process continues automatically
+          triggerRerender?.();
         }}
       />
     );

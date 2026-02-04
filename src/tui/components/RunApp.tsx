@@ -196,6 +196,12 @@ export interface RunAppProps {
   onParallelKill?: () => Promise<void>;
   /** Callback to restart parallel execution after stop/complete */
   onParallelStart?: () => void;
+  /** Callback to abort conflict resolution and rollback the merge */
+  onConflictAbort?: () => Promise<void>;
+  /** Callback to accept AI resolution for a specific file */
+  onConflictAccept?: (filePath: string) => void;
+  /** Callback to accept all AI resolutions */
+  onConflictAcceptAll?: () => void;
 }
 
 /**
@@ -455,6 +461,9 @@ export function RunApp({
   onParallelResume,
   onParallelKill,
   onParallelStart,
+  onConflictAbort,
+  onConflictAccept,
+  onConflictAcceptAll,
 }: RunAppProps): ReactNode {
   const { width, height } = useTerminalDimensions();
   const renderer = useRenderer();
@@ -1482,6 +1491,10 @@ export function RunApp({
       if (showConflictPanel) {
         switch (key.name) {
           case 'escape':
+            // Abort conflict resolution and rollback
+            if (onConflictAbort) {
+              onConflictAbort().catch(() => {});
+            }
             setShowConflictPanel(false);
             break;
           case 'j':
@@ -1492,6 +1505,26 @@ export function RunApp({
           case 'up':
             setConflictSelectedIndex((prev) => Math.max(prev - 1, 0));
             break;
+          case 'a':
+            // Accept AI resolution for the selected file
+            if (onConflictAccept && parallelConflicts[conflictSelectedIndex]) {
+              onConflictAccept(parallelConflicts[conflictSelectedIndex].filePath);
+            }
+            break;
+          case 'r':
+            // Reject - abort conflict resolution for this merge
+            if (onConflictAbort) {
+              onConflictAbort().catch(() => {});
+            }
+            setShowConflictPanel(false);
+            break;
+        }
+        // Handle shift+A for Accept All (key.shift is true when shift is held)
+        if (key.shift && key.name === 'a') {
+          if (onConflictAcceptAll) {
+            onConflictAcceptAll();
+          }
+          setShowConflictPanel(false);
         }
         return;
       }
