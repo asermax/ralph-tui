@@ -98,11 +98,14 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
   /** Output mode: text or stream-json */
   private outputMode: 'text' | 'stream-json' = 'text';
 
-  /** Model to use (e.g., 'kimi-k2-0711-preview') */
+  /** Model to use (e.g., 'kimi-for-coding') */
   private model?: string;
 
   /** Enable thinking mode */
   private thinking?: boolean;
+
+  /** Path to custom agent file for kimi CLI */
+  private agentFile?: string;
 
   /** Timeout in milliseconds (0 = no timeout) */
   protected override defaultTimeout = 0;
@@ -123,6 +126,10 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
 
     if (typeof config.thinking === 'boolean') {
       this.thinking = config.thinking;
+    }
+
+    if (typeof config.agentFile === 'string' && config.agentFile.length > 0) {
+      this.agentFile = config.agentFile;
     }
 
     if (typeof config.timeout === 'number' && config.timeout > 0) {
@@ -280,6 +287,14 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
         required: false,
         help: 'Enable thinking mode for models that support it',
       },
+      {
+        id: 'agentFile',
+        prompt: 'Path to custom agent file (optional):',
+        type: 'text',
+        default: '',
+        required: false,
+        help: 'Path to a custom agent configuration file for Kimi CLI (--agent-file)',
+      },
     ];
   }
 
@@ -315,6 +330,14 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
       args.push('--thinking');
     } else if (this.thinking === false) {
       args.push('--no-thinking');
+    }
+
+    // Add agent file if specified (from config or passed in options)
+    const agentFileToUse = options?.flags?.find((f) => f.startsWith('--agent-file'))
+      ? undefined // Agent file passed via flags
+      : this.agentFile;
+    if (agentFileToUse) {
+      args.push('--agent-file', agentFileToUse);
     }
 
     // Add prompt directly as argument
