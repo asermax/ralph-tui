@@ -148,6 +148,24 @@ export class ConflictResolver {
       // Expected to fail with conflicts — that's the state we want
     }
 
+    // Emit conflict:detected so UI shows the correct conflict list for this task.
+    // Phase 1 emits this too, but when multiple tasks conflict, only the last one's
+    // conflicts are shown. Re-emitting here ensures Phase 2 shows the right files.
+    const conflicts: FileConflict[] = conflictedFiles.map((filePath) => ({
+      filePath,
+      oursContent: '',
+      theirsContent: '',
+      baseContent: '',
+      conflictMarkers: '',
+    }));
+    this.emit({
+      type: 'conflict:detected',
+      timestamp: new Date().toISOString(),
+      operationId: operation.id,
+      taskId,
+      conflicts,
+    });
+
     // Resolve each conflicted file
     for (const filePath of conflictedFiles) {
       const conflict = this.extractConflict(filePath);
@@ -182,6 +200,10 @@ export class ConflictResolver {
       try {
         // Use -m with the message as a separate argument to avoid shell injection
         this.git(['commit', '--no-edit', '-m', operation.commitMessage]);
+
+        // Update operation status to completed (was 'conflicted')
+        operation.status = 'completed';
+        operation.completedAt = new Date().toISOString();
 
         this.emit({
           type: 'conflict:resolved',

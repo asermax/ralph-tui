@@ -382,6 +382,15 @@ export interface TrackerPlugin {
     /** Total number of tasks */
     totalCount: number;
   } | null>;
+
+  /**
+   * Get paths to state files that should be preserved during git merges.
+   * Used by parallel execution to prevent worker branches from overwriting
+   * tracker state (e.g., task completion status) during merge operations.
+   *
+   * @returns Array of absolute file paths that contain tracker state
+   */
+  getStateFiles?(): string[];
 }
 
 /**

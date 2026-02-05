@@ -569,8 +569,7 @@ export class JsonTrackerPlugin extends BaseTrackerPlugin {
         await this.writePrd(prd);
 
         return storyToTask(story, prd.name);
-      } catch (err) {
-        console.error(`Failed to update task ${id} status:`, err);
+      } catch {
         return undefined;
       }
     });
@@ -639,6 +638,26 @@ export class JsonTrackerPlugin extends BaseTrackerPlugin {
    */
   getFilePath(): string {
     return this.filePath;
+  }
+
+  /**
+   * Get paths to state files that should be preserved during git merges.
+   * For JSON tracker, this is the prd.json file which contains task completion status.
+   */
+  getStateFiles(): string[] {
+    if (this.filePath) {
+      return [this.filePath];
+    }
+    return [];
+  }
+
+  /**
+   * Clear the internal cache to force re-reading from disk.
+   * Used after tracker state files are restored following a git merge.
+   */
+  clearCache(): void {
+    this.prdCache = null;
+    this.cacheTime = 0;
   }
 
   /**

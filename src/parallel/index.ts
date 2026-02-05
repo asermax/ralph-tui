@@ -4,7 +4,7 @@
  * git worktrees, and merges results back sequentially with conflict resolution.
  */
 
-import { readFile, appendFile, access, constants } from 'node:fs/promises';
+import { readFile, writeFile, appendFile, access, constants } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RalphConfig } from '../config/types.js';
 import type { TrackerPlugin, TrackerTask } from '../plugins/trackers/types.js';
@@ -461,9 +461,15 @@ export class ParallelExecutor {
           groupTasksCompleted++;
           this.totalTasksCompleted++;
 
+          // Save tracker state before merge to prevent worktree's stale copy from overwriting
+          const savedState = await this.saveTrackerState();
+
           // Enqueue and process merge
           this.mergeEngine.enqueue(result);
           const mergeResult = await this.mergeEngine.processNext();
+
+          // Restore tracker state after merge to preserve task completion status
+          await this.restoreTrackerState(savedState);
 
           if (mergeResult?.success) {
             // Merge succeeded - mark task as complete in tracker
@@ -505,9 +511,15 @@ export class ParallelExecutor {
         for (const { operation, workerResult } of pendingConflicts) {
           if (this.shouldStop) break;
 
+          // Save tracker state before conflict resolution
+          const savedState = await this.saveTrackerState();
+
           const resolutions =
             await this.conflictResolver.resolveConflicts(operation);
           const allResolved = resolutions.every((r) => r.success);
+
+          // Restore tracker state after conflict resolution
+          await this.restoreTrackerState(savedState);
 
           if (allResolved) {
             // Conflict resolution succeeded - mark task as complete
@@ -721,6 +733,53 @@ export class ParallelExecutor {
       await appendFile(mainProgressPath, separator + workerProgress);
     } catch {
       // Silently ignore if worker progress file doesn't exist or can't be read
+    }
+  }
+
+  /**
+   * Save tracker state files before a merge operation.
+   * Returns a map of file paths to their contents for later restoration.
+   *
+   * This prevents git merge from overwriting tracker state (like task completion status)
+   * with stale versions from worker worktrees.
+   */
+  private async saveTrackerState(): Promise<Map<string, string>> {
+    const savedState = new Map<string, string>();
+
+    if (typeof this.tracker.getStateFiles !== 'function') {
+      return savedState;
+    }
+
+    const stateFiles = this.tracker.getStateFiles();
+    for (const filePath of stateFiles) {
+      try {
+        const content = await readFile(filePath, 'utf-8');
+        savedState.set(filePath, content);
+      } catch {
+        // File may not exist yet - that's fine
+      }
+    }
+
+    return savedState;
+  }
+
+  /**
+   * Restore tracker state files after a merge operation.
+   * This ensures tracker state (task completion status) is not overwritten
+   * by stale versions from worker worktrees during git merge.
+   */
+  private async restoreTrackerState(savedState: Map<string, string>): Promise<void> {
+    for (const [filePath, content] of savedState) {
+      try {
+        await writeFile(filePath, content, 'utf-8');
+        // Clear tracker's cache so it re-reads the restored content
+        const tracker = this.tracker as unknown as { clearCache?: () => void };
+        if (typeof tracker.clearCache === 'function') {
+          tracker.clearCache();
+        }
+      } catch {
+        // Best effort - log but don't fail
+      }
     }
   }
 

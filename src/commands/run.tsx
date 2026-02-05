@@ -1736,7 +1736,7 @@ async function runParallelWithTui(
         parallelState.currentlyResolvingFile = '';
         break;
 
-      case 'conflict:resolved':
+      case 'conflict:resolved': {
         parallelState.conflicts = [];
         parallelState.conflictResolutions = event.results;
         parallelState.conflictTaskId = '';
@@ -1745,7 +1745,19 @@ async function runParallelWithTui(
         parallelState.currentlyResolvingFile = '';
         // Hide the conflict panel now that resolution is complete
         parallelState.showConflicts = false;
+        // Refresh merge queue to show updated status (conflicted -> completed)
+        parallelState.mergeQueue = [...parallelExecutor.getState().mergeQueue];
+        // Task successfully merged after conflict resolution — update tracking sets
+        // Remove from completedLocally (no more ⚠ warning) and add to merged (shows ✓)
+        const resolvedSet = new Set(parallelState.completedLocallyTaskIds);
+        resolvedSet.delete(event.taskId);
+        parallelState.completedLocallyTaskIds = resolvedSet;
+        parallelState.mergedTaskIds = new Set([
+          ...parallelState.mergedTaskIds,
+          event.taskId,
+        ]);
         break;
+      }
 
       case 'parallel:completed':
         currentState = completeSession(currentState);
