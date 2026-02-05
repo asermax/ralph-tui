@@ -317,23 +317,11 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
       args.push('--no-thinking');
     }
 
-    // Add prompt - passed via stdin to avoid shell interpretation issues
-    // but we also add --prompt flag to indicate we're in prompt mode
-    args.push('--prompt', '-');
+    // Add prompt directly as argument
+    // Kimi CLI doesn't support stdin with --prompt -, so we pass it directly
+    args.push('--prompt', prompt);
 
     return args;
-  }
-
-  /**
-   * Provide the prompt via stdin instead of command args.
-   * This avoids shell interpretation issues with special characters in prompts.
-   */
-  protected override getStdinInput(
-    prompt: string,
-    _files?: AgentFileContext[],
-    _options?: AgentExecuteOptions
-  ): string {
-    return prompt;
   }
 
   /**
