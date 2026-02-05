@@ -60,6 +60,11 @@ describe('KimiAgentPlugin', () => {
       await plugin.initialize({ timeout: 60000 });
       expect(await plugin.isReady()).toBe(true);
     });
+
+    it('should accept agentFile config', async () => {
+      await plugin.initialize({ agentFile: '/path/to/agent.toml' });
+      expect(await plugin.isReady()).toBe(true);
+    });
   });
 
   describe('getSetupQuestions', () => {
@@ -78,6 +83,10 @@ describe('KimiAgentPlugin', () => {
       const thinkingQ = questions.find((q) => q.id === 'thinking');
       expect(thinkingQ).toBeDefined();
       expect(thinkingQ?.type).toBe('boolean');
+
+      const agentFileQ = questions.find((q) => q.id === 'agentFile');
+      expect(agentFileQ).toBeDefined();
+      expect(agentFileQ?.type).toBe('text');
     });
   });
 
@@ -256,6 +265,26 @@ not json
         const results = parser.flush();
         expect(results).toHaveLength(0);
       });
+    });
+  });
+
+  describe('buildArgs', () => {
+    beforeEach(async () => {
+      await plugin.initialize({});
+    });
+
+    it('should include agent-file flag when agentFile is configured', async () => {
+      await plugin.initialize({ agentFile: '/path/to/agent.toml' });
+      // Access protected method via type assertion for testing
+      const args = (plugin as unknown as { buildArgs(prompt: string): string[] }).buildArgs('test prompt');
+      expect(args).toContain('--agent-file');
+      expect(args).toContain('/path/to/agent.toml');
+    });
+
+    it('should not include agent-file flag when agentFile is not configured', async () => {
+      await plugin.initialize({});
+      const args = (plugin as unknown as { buildArgs(prompt: string): string[] }).buildArgs('test prompt');
+      expect(args).not.toContain('--agent-file');
     });
   });
 });
