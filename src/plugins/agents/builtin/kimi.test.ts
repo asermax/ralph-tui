@@ -95,10 +95,7 @@ describe('KimiAgentPlugin', () => {
     });
 
     it('should accept valid models', () => {
-      expect(plugin.validateModel('kimi-k2-0711-preview')).toBeNull();
-      expect(plugin.validateModel('kimi-k2-0711')).toBeNull();
-      expect(plugin.validateModel('kimi-k1-0711')).toBeNull();
-      expect(plugin.validateModel('kimi-latest')).toBeNull();
+      expect(plugin.validateModel('kimi-for-coding')).toBeNull();
     });
 
     it('should reject invalid models', () => {
@@ -128,7 +125,7 @@ describe('KimiAgentPlugin', () => {
     });
 
     it('should validate valid model', async () => {
-      const result = await plugin.validateSetup({ model: 'kimi-k2-0711-preview' });
+      const result = await plugin.validateSetup({ model: 'kimi-for-coding' });
       expect(result).toBeNull();
     });
 

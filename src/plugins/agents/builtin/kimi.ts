@@ -55,14 +55,12 @@ export type KimiJsonlParseResult =
 
 /**
  * Valid Kimi model names for the --model flag.
+ * Only kimi-for-coding is supported for programmatic use.
  * Empty string means use default (configured in kimi config).
  */
 const VALID_KIMI_MODELS = [
   '',
-  'kimi-k2-0711-preview',
-  'kimi-k2-0711',
-  'kimi-k1-0711',
-  'kimi-latest',
+  'kimi-for-coding',
 ] as const;
 
 /**
@@ -265,24 +263,9 @@ export class KimiAgentPlugin extends BaseAgentPlugin {
         choices: [
           { value: '', label: 'Default', description: 'Use configured default model' },
           {
-            value: 'kimi-k2-0711-preview',
-            label: 'Kimi K2 Preview',
-            description: 'Latest preview model',
-          },
-          {
-            value: 'kimi-k2-0711',
-            label: 'Kimi K2',
-            description: 'Stable K2 model',
-          },
-          {
-            value: 'kimi-k1-0711',
-            label: 'Kimi K1',
-            description: 'K1 model',
-          },
-          {
-            value: 'kimi-latest',
-            label: 'Kimi Latest',
-            description: 'Always use the latest available model',
+            value: 'kimi-for-coding',
+            label: 'Kimi for Coding',
+            description: 'Optimized for coding tasks',
           },
         ],
         default: '',
